@@ -25,8 +25,22 @@ pub struct ProjectLog {
     pub branches: Vec<BranchLog>,
 }
 
+impl BranchLog {
+    pub fn latest_activity(&self) -> Option<&str> {
+        self.commits.first().map(|c| c.relative_time.as_str())
+    }
+}
+
 impl ProjectLog {
     pub fn total_commits(&self) -> usize {
         self.branches.iter().map(|b| b.commits.len()).sum()
+    }
+
+    pub fn latest_activity(&self) -> Option<&str> {
+        self.branches
+            .iter()
+            .flat_map(|b| b.commits.first())
+            .max_by_key(|c| c.time)
+            .map(|c| c.relative_time.as_str())
     }
 }

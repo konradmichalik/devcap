@@ -71,7 +71,7 @@ pub fn run(projects: &[ProjectLog]) -> Result<()> {
             Selection::Back => return Ok(()),
             Selection::ShowAll => {
                 println!();
-                output::render_terminal(projects);
+                output::render_terminal(projects, crate::cli::Depth::Commits);
                 println!();
             }
             Selection::Index(idx) => {
@@ -200,12 +200,7 @@ fn show_commit_detail(project: &ProjectLog, commit: &Commit) -> Result<()> {
 fn format_project_item(project: &ProjectLog) -> String {
     let commits = project.total_commits();
     let branches = project.branches.len();
-    let latest = latest_activity(
-        project
-            .branches
-            .iter()
-            .flat_map(|b| b.commits.first()),
-    );
+    let latest = project.latest_activity().unwrap_or("-");
     format!(
         "{} {}  {}",
         "::".bold().cyan(),
@@ -224,11 +219,7 @@ fn format_project_item(project: &ProjectLog) -> String {
 
 fn format_branch_item(branch: &BranchLog) -> String {
     let commits = branch.commits.len();
-    let latest = branch
-        .commits
-        .first()
-        .map(|c| c.relative_time.as_str())
-        .unwrap_or("-");
+    let latest = branch.latest_activity().unwrap_or("-");
     format!(
         "{} {}  {}",
         ">>".green(),
@@ -241,13 +232,6 @@ fn format_branch_item(branch: &BranchLog) -> String {
         )
         .dimmed(),
     )
-}
-
-fn latest_activity<'a>(commits: impl Iterator<Item = &'a Commit>) -> &'a str {
-    commits
-        .max_by_key(|c| c.time)
-        .map(|c| c.relative_time.as_str())
-        .unwrap_or("-")
 }
 
 fn format_commit_item(commit: &Commit) -> String {
