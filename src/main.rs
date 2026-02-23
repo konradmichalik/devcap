@@ -1,6 +1,7 @@
 mod cli;
 mod discovery;
 mod git;
+mod interactive;
 mod model;
 mod output;
 mod period;
@@ -59,7 +60,9 @@ fn main() -> Result<()> {
         sp.finish_with_message(format!("\u{2713} {}", output::summary_line(&projects)));
     }
 
-    if cli.json {
+    if cli.interactive {
+        interactive::run(&projects)?;
+    } else if cli.json {
         println!("{}", output::render_json(&projects));
     } else {
         if !projects.is_empty() {

@@ -23,6 +23,7 @@ serde_json = "1"
 colored = "3"
 anyhow = "1"
 indicatif = "0.17"
+dialoguer = { version = "0.11", features = ["fuzzy-select"] }
 
 [lints.clippy]
 unwrap_used = "deny"

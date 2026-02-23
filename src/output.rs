@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::model::{Commit, ProjectLog};
+use crate::model::{BranchLog, Commit, ProjectLog};
 
 pub fn render_terminal(projects: &[ProjectLog]) {
     if projects.is_empty() {
@@ -12,38 +12,48 @@ pub fn render_terminal(projects: &[ProjectLog]) {
         if i > 0 {
             println!();
         }
-        println!("{} {}", "::".bold().cyan(), project.project.bold().white());
+        render_project(project);
+    }
+}
 
-        for branch in &project.branches {
-            println!("  {} {}", ">>".green(), branch.name.green());
+pub(crate) fn render_project(project: &ProjectLog) {
+    println!("{} {}", "::".bold().cyan(), project.project.bold().white());
+    for branch in &project.branches {
+        render_branch(branch);
+    }
+}
 
-            for commit in &branch.commits {
-                let tag = commit_type_tag(commit);
-                let msg = strip_type_prefix(&commit.message);
-                if tag.is_empty() {
-                    println!(
-                        "    {} {} - {}  {}",
-                        "*".dimmed(),
-                        commit.hash.dimmed(),
-                        msg,
-                        commit.relative_time.dimmed(),
-                    );
-                } else {
-                    println!(
-                        "    {} {} {} - {}  {}",
-                        "*".dimmed(),
-                        commit.hash.dimmed(),
-                        tag,
-                        msg,
-                        commit.relative_time.dimmed(),
-                    );
-                }
-            }
+pub(crate) fn render_branch(branch: &BranchLog) {
+    println!("  {} {}", ">>".green(), branch.name.green());
+    render_commits(&branch.commits);
+}
+
+fn render_commits(commits: &[Commit]) {
+    for commit in commits {
+        let tag = commit_type_tag(commit);
+        let msg = strip_type_prefix(&commit.message);
+        if tag.is_empty() {
+            println!(
+                "    {} {} - {}  {}",
+                "*".dimmed(),
+                commit.hash.dimmed(),
+                msg,
+                commit.relative_time.dimmed(),
+            );
+        } else {
+            println!(
+                "    {} {} {} - {}  {}",
+                "*".dimmed(),
+                commit.hash.dimmed(),
+                tag,
+                msg,
+                commit.relative_time.dimmed(),
+            );
         }
     }
 }
 
-fn commit_type_tag(commit: &Commit) -> String {
+pub(crate) fn commit_type_tag(commit: &Commit) -> String {
     match commit.commit_type.as_deref() {
         Some("feat") => "feat".green().bold().to_string(),
         Some("fix") => "fix".red().bold().to_string(),
@@ -55,7 +65,7 @@ fn commit_type_tag(commit: &Commit) -> String {
     }
 }
 
-fn strip_type_prefix(message: &str) -> &str {
+pub(crate) fn strip_type_prefix(message: &str) -> &str {
     if let Some(rest) = message.split_once(':') {
         rest.1.trim_start()
     } else {

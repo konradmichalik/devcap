@@ -21,6 +21,10 @@ pub struct Cli {
     #[arg(long)]
     pub json: bool,
 
+    /// Interactive drill-down mode (projects > branches > commits)
+    #[arg(short, long, conflicts_with = "json")]
+    pub interactive: bool,
+
     /// Filter by author name (defaults to git config user.name)
     #[arg(short, long)]
     pub author: Option<String>,
