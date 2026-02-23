@@ -9,6 +9,14 @@ Scans a directory tree for git repos in parallel, filters commits by author and 
 
 ## 🔥 Installation
 
+### Homebrew (macOS)
+
+```bash
+brew install konradmichalik/tap/worklog-git
+```
+
+### From source
+
 ```bash
 cargo install --path .
 ```
