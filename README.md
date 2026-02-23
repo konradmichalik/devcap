@@ -4,6 +4,13 @@ Aggregate git commits across multiple local repositories for daily stand-ups and
 
 Scans a directory tree for git repos in parallel, filters commits by author and time period, and renders a colorized `Project -> Branch -> Commits` tree — or structured JSON.
 
+## ✨ Features
+
+- **Flexible time periods** — `today`, `yesterday`, `week`, or arbitrary `Xh` / `Xd` (e.g. `24h`, `3d`, `14d`)
+- **Parallel repo scanning** — uses [rayon](https://github.com/rayon-rs/rayon); skips `node_modules`, `target`, `vendor`, and other build artifacts automatically
+- **Conventional commit highlighting** — color-coded by type in terminal output
+- **JSON output** — machine-readable, suitable for scripting or further processing
+
 > [!NOTE]
 > Requires `git` on `$PATH`. Author defaults to `git config --global user.name`.
 
@@ -14,6 +21,8 @@ Scans a directory tree for git repos in parallel, filters commits by author and 
 ```bash
 brew install konradmichalik/tap/worklog-git
 ```
+
+This installs both `worklog-git` and the shorthand `wl`.
 
 ### From source
 
@@ -37,7 +46,7 @@ worklog-git -p 7d --path ~/Sites -a "Jane Doe"
 worklog-git -p week --json
 ```
 
-## 📋 Example Output
+### Example Output
 
 ```
 :: my-app
@@ -57,16 +66,7 @@ worklog-git -p week --json
 Found 7 commits in 2 projects
 ```
 
-Conventional commit types are color-highlighted: `feat` green, `fix` red, `refactor` cyan, `docs` blue, `test`/`style` yellow, `chore`/`ci`/`perf`/`build` dimmed.
-
-## ✨ Features
-
-- **Flexible time periods** — `today`, `yesterday`, `week`, or arbitrary `Xh` / `Xd` (e.g. `24h`, `3d`, `14d`)
-- **Parallel repo scanning** — uses [rayon](https://github.com/rayon-rs/rayon); skips `node_modules`, `target`, `vendor`, and other build artifacts automatically
-- **Conventional commit highlighting** — color-coded by type in terminal output
-- **JSON output** — machine-readable, suitable for scripting or further processing
-
-## ⚙️ Options
+### Options
 
 ```
 Usage: worklog-git [OPTIONS]
@@ -86,7 +86,7 @@ Options:
 > worklog-git -p week --json | jq '[.[] | {project, commits: [.branches[].commits[].message]}]'
 > ```
 
-## 💡 JSON Schema
+### JSON Schema
 
 Each entry in the JSON array follows this shape:
 

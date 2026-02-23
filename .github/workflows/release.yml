@@ -34,7 +34,7 @@ jobs:
       - name: Package
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ../../../worklog-git-${{ matrix.arch }}-apple-darwin.tar.gz worklog-git
+          tar czf ../../../worklog-git-${{ matrix.arch }}-apple-darwin.tar.gz worklog-git wl
           cd ../../..
 
       - name: Upload artifact

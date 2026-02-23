@@ -3,6 +3,15 @@ name = "worklog-git"
 version = "0.1.0"
 edition = "2021"
 description = "Aggregate git commits across repos for standups and time tracking"
+default-run = "worklog-git"
+
+[[bin]]
+name = "worklog-git"
+path = "src/main.rs"
+
+[[bin]]
+name = "wl"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
