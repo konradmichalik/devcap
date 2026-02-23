@@ -33,18 +33,7 @@ worklog-git -p week --json
 
 - **Flexible time periods** — `today`, `yesterday`, `week`, or arbitrary `Xh` / `Xd` (e.g. `24h`, `3d`, `14d`)
 - **Parallel repo scanning** — uses [rayon](https://github.com/rayon-rs/rayon); skips `node_modules`, `target`, `vendor`, and other build artifacts automatically
-- **Smart branch order** — `main` / `master` always listed first, then alphabetical
 - **Conventional commit highlighting** — color-coded by type in terminal output
-
-  | Type | Color |
-  |------|-------|
-  | `feat` | green bold |
-  | `fix` | red bold |
-  | `refactor` | cyan |
-  | `docs` | blue |
-  | `test`, `style` | yellow |
-  | `chore`, `ci`, `perf`, `build` | dimmed |
-
 - **JSON output** — machine-readable, suitable for scripting or further processing
 
 ## ⚙️ Options
