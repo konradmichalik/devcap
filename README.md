@@ -4,6 +4,8 @@ Aggregate git commits across multiple local repositories for daily stand-ups and
 
 Scans a directory tree for git repos in parallel, filters commits by author and time period, and renders a colorized `Project -> Branch -> Commits` tree — or structured JSON.
 
+![Terminal output](docs/images/terminal.png)
+
 ## ✨ Features
 
 - **Flexible time periods** — `today`, `yesterday`, `week`, or arbitrary `Xh` / `Xd` (e.g. `24h`, `3d`, `14d`)
@@ -45,10 +47,6 @@ worklog-git -p 7d --path ~/Sites -a "Jane Doe"
 # This calendar week as JSON
 worklog-git -p week --json
 ```
-
-### Example Output
-
-![Terminal output](docs/images/terminal.png)
 
 ### Options
 
