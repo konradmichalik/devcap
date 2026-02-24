@@ -26,7 +26,7 @@ Scans a directory tree for git repos in parallel, filters commits by author and 
 brew install konradmichalik/tap/worklog-git
 ```
 
-This installs both `worklog-git` and the shorthand `wl`.
+This installs both `worklog-git` and the shorthand `wg`.
 
 To update to the latest version:
 
