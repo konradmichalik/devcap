@@ -10,7 +10,7 @@ name = "worklog-git"
 path = "src/main.rs"
 
 [[bin]]
-name = "wl"
+name = "wg"
 path = "src/main.rs"
 
 [dependencies]
