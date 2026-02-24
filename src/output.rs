@@ -123,7 +123,6 @@ pub(crate) fn commit_type_tag(commit: &Commit) -> String {
         }
     } else {
         match commit.commit_type.as_deref() {
-            Some(t @ ("chore" | "ci" | "perf" | "build")) => t.dimmed().to_string(),
             Some(t) => t.to_string(),
             None => String::new(),
         }
