@@ -1,4 +1,4 @@
-use crate::period::Period;
+use worklog_core::period::Period;
 use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 

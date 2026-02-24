@@ -1,0 +1,14 @@
+[package]
+name = "worklog-core"
+version.workspace = true
+edition.workspace = true
+description = "Core library for aggregating git commits across repositories"
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+walkdir = "2"
+serde = { version = "1", features = ["derive"] }
+anyhow = "1"
+
+[lints]
+workspace = true

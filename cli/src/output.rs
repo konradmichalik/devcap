@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use colored::Colorize;
 
 use crate::cli::Depth;
-use crate::model::{BranchLog, Commit, ProjectLog};
+use worklog_core::model::{BranchLog, Commit, ProjectLog};
 
 static COLOR_ENABLED: OnceLock<bool> = OnceLock::new();
 
@@ -179,7 +179,7 @@ mod tests {
         let projects = vec![ProjectLog {
             project: "test".to_string(),
             path: "/test".to_string(),
-            branches: vec![crate::model::BranchLog {
+            branches: vec![BranchLog {
                 name: "main".to_string(),
                 commits: vec![make_commit("test", None)],
             }],
@@ -193,7 +193,7 @@ mod tests {
             ProjectLog {
                 project: "a".to_string(),
                 path: "/a".to_string(),
-                branches: vec![crate::model::BranchLog {
+                branches: vec![BranchLog {
                     name: "main".to_string(),
                     commits: vec![make_commit("1", None), make_commit("2", None)],
                 }],
@@ -201,7 +201,7 @@ mod tests {
             ProjectLog {
                 project: "b".to_string(),
                 path: "/b".to_string(),
-                branches: vec![crate::model::BranchLog {
+                branches: vec![BranchLog {
                     name: "main".to_string(),
                     commits: vec![make_commit("3", None)],
                 }],

@@ -2,7 +2,7 @@ use std::process::Command;
 
 fn cargo_run(args: &[&str]) -> std::process::Output {
     Command::new("cargo")
-        .args(["run", "--quiet", "--"])
+        .args(["run", "--package", "worklog-cli", "--quiet", "--"])
         .args(args)
         .output()
         .expect("Failed to execute cargo run")

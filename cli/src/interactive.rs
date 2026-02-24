@@ -6,7 +6,7 @@ use dialoguer::FuzzySelect;
 use std::fmt;
 use std::process::Command;
 
-use crate::model::{BranchLog, Commit, ProjectLog};
+use worklog_core::model::{BranchLog, Commit, ProjectLog};
 use crate::output;
 
 const BACK_LABEL: &str = "\u{276e} Back";
