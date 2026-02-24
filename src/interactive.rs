@@ -201,37 +201,37 @@ fn format_project_item(project: &ProjectLog) -> String {
     let commits = project.total_commits();
     let branches = project.branches.len();
     let latest = project.latest_activity().unwrap_or("-");
-    format!(
-        "{} {}  {}",
-        "::".bold().cyan(),
-        project.project.bold().white(),
-        format!(
-            "({} {}, {} {}, {})",
-            commits,
-            pluralize("commit", commits),
-            branches,
-            pluralize("branch", branches),
-            latest,
-        )
-        .dimmed(),
+    let summary = format!(
+        "({} {}, {} {}, {})",
+        commits,
+        pluralize("commit", commits),
+        branches,
+        pluralize("branch", branches),
+        latest,
     )
+    .dimmed();
+    if output::color_enabled() {
+        format!("{} {}  {}", "::".bold().cyan(), project.project.bold().white(), summary)
+    } else {
+        format!("{} {}  {}", "::".bold(), project.project.bold(), summary)
+    }
 }
 
 fn format_branch_item(branch: &BranchLog) -> String {
     let commits = branch.commits.len();
     let latest = branch.latest_activity().unwrap_or("-");
-    format!(
-        "{} {}  {}",
-        ">>".green(),
-        branch.name.green(),
-        format!(
-            "({} {}, {})",
-            commits,
-            pluralize("commit", commits),
-            latest,
-        )
-        .dimmed(),
+    let summary = format!(
+        "({} {}, {})",
+        commits,
+        pluralize("commit", commits),
+        latest,
     )
+    .dimmed();
+    if output::color_enabled() {
+        format!("{} {}  {}", ">>".green(), branch.name.green(), summary)
+    } else {
+        format!("{} {}  {}", ">>", branch.name, summary)
+    }
 }
 
 fn format_commit_item(commit: &Commit) -> String {

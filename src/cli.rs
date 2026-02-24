@@ -27,9 +27,13 @@ pub struct Cli {
     #[arg(long, default_value = ".")]
     pub path: PathBuf,
 
-    /// Output as JSON instead of colored terminal tree
+    /// Output as JSON
     #[arg(long)]
     pub json: bool,
+
+    /// Enable colored output for commit types and markers
+    #[arg(short, long)]
+    pub color: bool,
 
     /// Interactive drill-down mode (projects > branches > commits)
     #[arg(short, long, conflicts_with = "json")]

@@ -13,6 +13,7 @@ use rayon::prelude::*;
 
 fn main() -> Result<()> {
     let cli = cli::Cli::parse();
+    output::set_color_enabled(cli.color);
     let range = cli.period.to_time_range();
     let author = cli.author.or_else(git::default_author);
     let author_ref = author.as_deref();
