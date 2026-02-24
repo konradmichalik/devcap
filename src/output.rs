@@ -1,7 +1,19 @@
+use std::sync::OnceLock;
+
 use colored::Colorize;
 
 use crate::cli::Depth;
 use crate::model::{BranchLog, Commit, ProjectLog};
+
+static COLOR_ENABLED: OnceLock<bool> = OnceLock::new();
+
+pub fn set_color_enabled(enabled: bool) {
+    COLOR_ENABLED.set(enabled).ok();
+}
+
+pub(crate) fn color_enabled() -> bool {
+    *COLOR_ENABLED.get().unwrap_or(&false)
+}
 
 pub fn render_terminal(projects: &[ProjectLog], depth: Depth) {
     if projects.is_empty() {
@@ -25,43 +37,51 @@ fn render_project_summary(project: &ProjectLog) {
     let commits = project.total_commits();
     let branches = project.branches.len();
     let latest = project.latest_activity().unwrap_or("-");
-    println!(
-        "{} {}  {}",
-        "::".bold().cyan(),
-        project.project.bold().white(),
-        format!("({commits} commits, {branches} branches, {latest})").dimmed(),
-    );
+    let summary = format!("({commits} commits, {branches} branches, {latest})").dimmed();
+    if color_enabled() {
+        println!("{} {}  {}", "::".bold().cyan(), project.project.bold().white(), summary);
+    } else {
+        println!("{} {}  {}", "::".bold(), project.project.bold(), summary);
+    }
 }
 
 fn render_project_with_branches(project: &ProjectLog) {
     let latest = project.latest_activity().unwrap_or("-");
-    println!(
-        "{} {}  {}",
-        "::".bold().cyan(),
-        project.project.bold().white(),
-        format!("({latest})").dimmed(),
-    );
+    let summary = format!("({latest})").dimmed();
+    if color_enabled() {
+        println!("{} {}  {}", "::".bold().cyan(), project.project.bold().white(), summary);
+    } else {
+        println!("{} {}  {}", "::".bold(), project.project.bold(), summary);
+    }
     for branch in &project.branches {
         let count = branch.commits.len();
         let branch_latest = branch.latest_activity().unwrap_or("-");
-        println!(
-            "  {} {}  {}",
-            ">>".green(),
-            branch.name.green(),
-            format!("({count} commits, {branch_latest})").dimmed(),
-        );
+        let branch_summary = format!("({count} commits, {branch_latest})").dimmed();
+        if color_enabled() {
+            println!("  {} {}  {}", ">>".green(), branch.name.green(), branch_summary);
+        } else {
+            println!("  {} {}  {}", ">>", branch.name, branch_summary);
+        }
     }
 }
 
 pub(crate) fn render_project(project: &ProjectLog) {
-    println!("{} {}", "::".bold().cyan(), project.project.bold().white());
+    if color_enabled() {
+        println!("{} {}", "::".bold().cyan(), project.project.bold().white());
+    } else {
+        println!("{} {}", "::".bold(), project.project.bold());
+    }
     for branch in &project.branches {
         render_branch(branch);
     }
 }
 
 pub(crate) fn render_branch(branch: &BranchLog) {
-    println!("  {} {}", ">>".green(), branch.name.green());
+    if color_enabled() {
+        println!("  {} {}", ">>".green(), branch.name.green());
+    } else {
+        println!("  {} {}", ">>", branch.name);
+    }
     render_commits(&branch.commits);
 }
 
@@ -91,14 +111,22 @@ fn render_commits(commits: &[Commit]) {
 }
 
 pub(crate) fn commit_type_tag(commit: &Commit) -> String {
-    match commit.commit_type.as_deref() {
-        Some("feat") => "feat".green().bold().to_string(),
-        Some("fix") => "fix".red().bold().to_string(),
-        Some("refactor") => "refactor".cyan().to_string(),
-        Some("docs") => "docs".blue().to_string(),
-        Some(t @ ("test" | "style")) => t.yellow().to_string(),
-        Some(t @ ("chore" | "ci" | "perf" | "build")) => t.dimmed().to_string(),
-        _ => String::new(),
+    if color_enabled() {
+        match commit.commit_type.as_deref() {
+            Some("feat") => "feat".green().bold().to_string(),
+            Some("fix") => "fix".red().bold().to_string(),
+            Some("refactor") => "refactor".cyan().to_string(),
+            Some("docs") => "docs".blue().to_string(),
+            Some(t @ ("test" | "style")) => t.yellow().to_string(),
+            Some(t @ ("chore" | "ci" | "perf" | "build")) => t.dimmed().to_string(),
+            _ => String::new(),
+        }
+    } else {
+        match commit.commit_type.as_deref() {
+            Some(t @ ("chore" | "ci" | "perf" | "build")) => t.dimmed().to_string(),
+            Some(t) => t.to_string(),
+            None => String::new(),
+        }
     }
 }
 
