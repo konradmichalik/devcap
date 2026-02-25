@@ -2,7 +2,7 @@ use std::process::Command;
 
 fn cargo_run(args: &[&str]) -> std::process::Output {
     Command::new("cargo")
-        .args(["run", "--package", "worklog-cli", "--quiet", "--"])
+        .args(["run", "--package", "devcap-cli", "--quiet", "--"])
         .args(args)
         .output()
         .expect("Failed to execute cargo run")
@@ -40,7 +40,7 @@ fn invalid_period_shows_error() {
 
 #[test]
 fn nonexistent_path_shows_message() {
-    let output = cargo_run(&["--path", "/tmp/nonexistent_worklog_test_dir"]);
+    let output = cargo_run(&["--path", "/tmp/nonexistent_devcap_test_dir"]);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("No git repositories found") || output.status.success(),

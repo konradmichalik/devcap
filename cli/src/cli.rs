@@ -1,4 +1,4 @@
-use worklog_core::period::Period;
+use devcap_core::period::Period;
 use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 
@@ -14,7 +14,7 @@ pub enum Depth {
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "worklog.git",
+    name = "devcap",
     about = "Aggregate git commits across repos for standups and time tracking",
     version
 )]

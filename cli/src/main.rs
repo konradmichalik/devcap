@@ -6,7 +6,7 @@ use anyhow::Result;
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
-use worklog_core::{discovery, git, model};
+use devcap_core::{discovery, git, model};
 
 fn main() -> Result<()> {
     let cli = cli::Cli::parse();

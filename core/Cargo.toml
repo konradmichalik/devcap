@@ -1,5 +1,5 @@
 [package]
-name = "worklog-core"
+name = "devcap-core"
 version.workspace = true
 edition.workspace = true
 description = "Core library for aggregating git commits across repositories"

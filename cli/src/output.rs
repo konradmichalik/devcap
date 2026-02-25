@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use colored::Colorize;
 
 use crate::cli::Depth;
-use worklog_core::model::{BranchLog, Commit, ProjectLog};
+use devcap_core::model::{BranchLog, Commit, ProjectLog};
 
 static COLOR_ENABLED: OnceLock<bool> = OnceLock::new();
 

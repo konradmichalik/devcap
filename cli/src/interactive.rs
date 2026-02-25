@@ -6,18 +6,18 @@ use dialoguer::FuzzySelect;
 use std::fmt;
 use std::process::Command;
 
-use worklog_core::model::{BranchLog, Commit, ProjectLog};
+use devcap_core::model::{BranchLog, Commit, ProjectLog};
 use crate::output;
 
 const BACK_LABEL: &str = "\u{276e} Back";
 const QUIT_LABEL: &str = "\u{276e} Quit";
 const SHOW_ALL_LABEL: &str = "\u{2630} Show all";
 
-struct WorklogTheme {
+struct DevcapTheme {
     inner: ColorfulTheme,
 }
 
-impl WorklogTheme {
+impl DevcapTheme {
     fn new() -> Self {
         Self {
             inner: ColorfulTheme::default(),
@@ -25,7 +25,7 @@ impl WorklogTheme {
     }
 }
 
-impl Theme for WorklogTheme {
+impl Theme for DevcapTheme {
     fn format_fuzzy_select_prompt(
         &self,
         f: &mut dyn fmt::Write,
@@ -64,7 +64,7 @@ enum Selection {
 }
 
 pub fn run(projects: &[ProjectLog]) -> Result<()> {
-    let theme = WorklogTheme::new();
+    let theme = DevcapTheme::new();
 
     loop {
         match select_project(&theme, projects)? {
@@ -82,7 +82,7 @@ pub fn run(projects: &[ProjectLog]) -> Result<()> {
     }
 }
 
-fn browse_project(theme: &WorklogTheme, project: &ProjectLog) -> Result<()> {
+fn browse_project(theme: &DevcapTheme, project: &ProjectLog) -> Result<()> {
     loop {
         match select_branch(theme, project)? {
             Selection::Back => return Ok(()),
@@ -100,7 +100,7 @@ fn browse_project(theme: &WorklogTheme, project: &ProjectLog) -> Result<()> {
 }
 
 fn browse_branch(
-    theme: &WorklogTheme,
+    theme: &DevcapTheme,
     project: &ProjectLog,
     branch: &BranchLog,
 ) -> Result<()> {
@@ -120,7 +120,7 @@ fn browse_branch(
     }
 }
 
-fn select_project(theme: &WorklogTheme, projects: &[ProjectLog]) -> Result<Selection> {
+fn select_project(theme: &DevcapTheme, projects: &[ProjectLog]) -> Result<Selection> {
     let items: Vec<String> = [QUIT_LABEL, SHOW_ALL_LABEL]
         .into_iter()
         .map(String::from)
@@ -136,7 +136,7 @@ fn select_project(theme: &WorklogTheme, projects: &[ProjectLog]) -> Result<Selec
     )
 }
 
-fn select_branch(theme: &WorklogTheme, project: &ProjectLog) -> Result<Selection> {
+fn select_branch(theme: &DevcapTheme, project: &ProjectLog) -> Result<Selection> {
     let items: Vec<String> = [BACK_LABEL, SHOW_ALL_LABEL]
         .into_iter()
         .map(String::from)
@@ -152,7 +152,7 @@ fn select_branch(theme: &WorklogTheme, project: &ProjectLog) -> Result<Selection
     )
 }
 
-fn select_commit(theme: &WorklogTheme, branch: &BranchLog) -> Result<Selection> {
+fn select_commit(theme: &DevcapTheme, branch: &BranchLog) -> Result<Selection> {
     let items: Vec<String> = [BACK_LABEL, SHOW_ALL_LABEL]
         .into_iter()
         .map(String::from)

@@ -1,4 +1,4 @@
-# worklog-git
+# devcap
 
 Aggregate git commits across multiple local repositories for daily stand-ups and time tracking.
 
@@ -23,15 +23,15 @@ Scans a directory tree for git repos in parallel, filters commits by author and 
 ### Homebrew (macOS)
 
 ```bash
-brew install konradmichalik/tap/worklog-git
+brew install konradmichalik/tap/devcap
 ```
 
-This installs both `worklog-git` and the shorthand `wg`.
+This installs both `devcap` and the shorthand `wg`.
 
 To update to the latest version:
 
 ```bash
-brew upgrade konradmichalik/tap/worklog-git
+brew upgrade konradmichalik/tap/devcap
 ```
 
 ### From source
@@ -44,25 +44,25 @@ cargo install --path .
 
 ```bash
 # Today's commits in the current directory
-worklog-git
+devcap
 
 # Yesterday across all projects under ~/Sites
-worklog-git -p yesterday --path ~/Sites
+devcap -p yesterday --path ~/Sites
 
 # Last 7 days, filtered by author
-worklog-git -p 7d --path ~/Sites -a "Jane Doe"
+devcap -p 7d --path ~/Sites -a "Jane Doe"
 
 # This calendar week as JSON
-worklog-git -p week --json
+devcap -p week --json
 
 # Interactive drill-down mode
-worklog-git -i --path ~/Sites -p 7d
+devcap -i --path ~/Sites -p 7d
 
 # Compact overview — projects only
-worklog-git -d projects --path ~/Sites -p 7d
+devcap -d projects --path ~/Sites -p 7d
 
 # Projects with branches (no individual commits)
-worklog-git -d branches --path ~/Sites -p 7d
+devcap -d branches --path ~/Sites -p 7d
 ```
 
 ### Interactive Mode
@@ -93,7 +93,7 @@ Use `-d` / `--depth` to control how much detail is shown. Each level includes a 
 ### Options
 
 ```
-Usage: worklog-git [OPTIONS]
+Usage: devcap [OPTIONS]
 
 Options:
   -p, --period <PERIOD>    Time period: today, yesterday, 24h, 3d, 7d, week [default: today]
@@ -109,7 +109,7 @@ Options:
 > [!TIP]
 > Use `--json` to pipe into `jq` for custom filtering:
 > ```bash
-> worklog-git -p week --json | jq '[.[] | {project, commits: [.branches[].commits[].message]}]'
+> devcap -p week --json | jq '[.[] | {project, commits: [.branches[].commits[].message]}]'
 > ```
 
 ### JSON Schema

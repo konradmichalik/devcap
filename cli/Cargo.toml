@@ -1,12 +1,12 @@
 [package]
-name = "worklog-cli"
+name = "devcap-cli"
 version.workspace = true
 edition.workspace = true
 description = "Aggregate git commits across repos for standups and time tracking"
-default-run = "worklog-git"
+default-run = "devcap"
 
 [[bin]]
-name = "worklog-git"
+name = "devcap"
 path = "src/main.rs"
 
 [[bin]]
@@ -14,7 +14,7 @@ name = "wg"
 path = "src/main.rs"
 
 [dependencies]
-worklog-core = { path = "../core" }
+devcap-core = { path = "../core" }
 clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 colored = "3"
