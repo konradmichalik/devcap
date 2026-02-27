@@ -21,10 +21,12 @@ Scans a directory tree for git repos in parallel, filters commits by author and 
 
 - **Flexible time periods** — `today`, `yesterday`, `week`, or arbitrary `Xh` / `Xd` (e.g. `24h`, `3d`, `14d`)
 - **Parallel repo scanning** — uses [rayon](https://github.com/rayon-rs/rayon); skips `node_modules`, `target`, `vendor`, and other build artifacts automatically
-- **Conventional commit highlighting** — color-coded by type in terminal output
+- **Conventional commit highlighting** — color-coded by type, auto-detected for TTY
 - **Interactive mode** — drill-down navigation through projects, branches, and commits with fuzzy search
 - **Output depth** — show only projects, projects with branches, or full detail with `-d`
 - **JSON output** — machine-readable, suitable for scripting or further processing
+- **Clipboard copy** — `--copy` puts a clean plain-text summary on the clipboard for pasting into Slack or Teams
+- **Config file** — `~/.devcap.toml` stores your defaults so you don't have to repeat `--path` and `--author`
 
 > [!NOTE]
 > Requires `git` on `$PATH`. Author defaults to `git config --global user.name`.
@@ -86,6 +88,9 @@ devcap -d branches --path ~/Sites -p 7d
 
 # Show repository origin (GitHub, GitLab, etc.)
 devcap --show-origin --path ~/Sites -p 7d
+
+# Copy output to clipboard for stand-ups
+devcap --copy --path ~/Sites -p yesterday
 ```
 
 ### Interactive Mode
@@ -125,6 +130,30 @@ Use `-o` / `--show-origin` to display the hosting platform of each repository, d
 
 Supported platforms: GitHub, GitLab, Bitbucket, GitLab Self-Hosted, and custom hostnames. The `origin` field is always included in JSON output regardless of the flag.
 
+### Clipboard Copy
+
+Use `--copy` to put a clean plain-text summary on the system clipboard — ready to paste into Slack, Teams, or a daily standup note:
+
+```bash
+devcap --copy -p yesterday --path ~/Sites
+```
+
+The normal terminal output is still printed; the clipboard content is a plain-text version without ANSI colors. A confirmation message (`Copied to clipboard.`) appears on stderr.
+
+### Config File
+
+Create `~/.devcap.toml` to set defaults. CLI arguments always take precedence.
+
+```toml
+path = "~/Sites"
+author = "Jane Doe"
+period = "today"
+show_origin = true
+color = true
+```
+
+All fields are optional. When a field is not set in the config, the built-in default applies (`path = "."`, `period = "today"`, color auto-detected from TTY).
+
 ### Options
 
 ```
@@ -134,6 +163,8 @@ Options:
   -p, --period <PERIOD>    Time period: today, yesterday, 24h, 3d, 7d, week [default: today]
       --path <PATH>        Root directory to scan for git repos [default: .]
       --json               Output as JSON instead of colored terminal tree
+      --no-color           Disable colored output (overrides TTY auto-detection)
+      --copy               Copy output to clipboard as plain text (for stand-ups)
   -i, --interactive        Interactive drill-down mode (projects > branches > commits)
   -d, --depth <DEPTH>      Output depth: projects, branches, commits [default: commits]
   -a, --author <AUTHOR>    Filter by author name (defaults to git config user.name)
@@ -141,6 +172,9 @@ Options:
   -h, --help               Print help
   -V, --version            Print version
 ```
+
+> [!NOTE]
+> Colors are auto-detected: enabled when stdout is a terminal, disabled when piping. Use `--no-color` to force plain output, or set `color = false` in `~/.devcap.toml`.
 
 > [!TIP]
 > Use `--json` to pipe into `jq` for custom filtering:
