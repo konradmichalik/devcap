@@ -243,6 +243,7 @@ mod tests {
             project: "test".to_string(),
             path: "/test".to_string(),
             origin: None,
+            remote_url: None,
             branches: vec![BranchLog {
                 name: "main".to_string(),
                 commits: vec![make_commit("test", None)],
@@ -258,6 +259,7 @@ mod tests {
                 project: "a".to_string(),
                 path: "/a".to_string(),
                 origin: None,
+                remote_url: None,
                 branches: vec![BranchLog {
                     name: "main".to_string(),
                     commits: vec![make_commit("1", None), make_commit("2", None)],
@@ -267,6 +269,7 @@ mod tests {
                 project: "b".to_string(),
                 path: "/b".to_string(),
                 origin: None,
+                remote_url: None,
                 branches: vec![BranchLog {
                     name: "main".to_string(),
                     commits: vec![make_commit("3", None)],

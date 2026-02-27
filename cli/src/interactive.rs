@@ -311,6 +311,7 @@ mod tests {
             project: "my-app".to_string(),
             path: "/test".to_string(),
             origin: None,
+            remote_url: None,
             branches: vec![BranchLog {
                 name: "main".to_string(),
                 commits: vec![make_commit("abc", "msg", "1h ago")],
@@ -328,6 +329,7 @@ mod tests {
             project: "my-app".to_string(),
             path: "/test".to_string(),
             origin: None,
+            remote_url: None,
             branches: vec![
                 BranchLog {
                     name: "main".to_string(),
@@ -354,6 +356,7 @@ mod tests {
             project: "my-app".to_string(),
             path: "/test".to_string(),
             origin: Some(RepoOrigin::GitHub),
+            remote_url: None,
             branches: vec![BranchLog {
                 name: "main".to_string(),
                 commits: vec![make_commit("abc", "msg", "1h ago")],
@@ -370,6 +373,7 @@ mod tests {
             project: "my-app".to_string(),
             path: "/test".to_string(),
             origin: Some(RepoOrigin::GitHub),
+            remote_url: None,
             branches: vec![BranchLog {
                 name: "main".to_string(),
                 commits: vec![make_commit("abc", "msg", "1h ago")],

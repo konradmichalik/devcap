@@ -96,6 +96,7 @@ mod tests {
             project: name.to_string(),
             path: format!("/test/{name}"),
             origin,
+            remote_url: None,
             branches: vec![BranchLog {
                 name: "main".to_string(),
                 commits: vec![
@@ -171,6 +172,7 @@ mod tests {
             project: "test".to_string(),
             path: "/test".to_string(),
             origin: None,
+            remote_url: None,
             branches: vec![BranchLog {
                 name: "main".to_string(),
                 commits: vec![make_commit("aaa1111", "update readme", None)],

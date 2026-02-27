@@ -189,6 +189,49 @@ fn classify_host(hostname: &str) -> RepoOrigin {
     }
 }
 
+/// Convert a git remote URL (SSH or HTTPS) into a browser-friendly HTTPS URL.
+pub fn remote_to_browser_url(raw: &str) -> Option<String> {
+    let mut url = raw.trim().to_string();
+
+    // SSH: git@github.com:user/repo.git → https://github.com/user/repo
+    if url.starts_with("git@") {
+        url = url.replacen("git@", "https://", 1);
+        if let Some(pos) = url.find(':') {
+            // Only replace the first colon after the host (not in https://)
+            let after_scheme = &url["https://".len()..];
+            if let Some(colon) = after_scheme.find(':') {
+                let abs = "https://".len() + colon;
+                url.replace_range(abs..abs + 1, "/");
+            } else {
+                url.replace_range(pos..pos + 1, "/");
+            }
+        }
+    }
+
+    // ssh://git@host/... → https://host/...
+    if url.starts_with("ssh://") {
+        url = url.replacen("ssh://", "https://", 1);
+        if let Some(at) = url.find('@') {
+            url = format!("https://{}", &url[at + 1..]);
+        }
+    }
+
+    if url.ends_with(".git") {
+        url.truncate(url.len() - 4);
+    }
+
+    if url.starts_with("https://") || url.starts_with("http://") {
+        Some(url)
+    } else {
+        None
+    }
+}
+
+pub fn browser_url(repo: &Path) -> Option<String> {
+    let raw = get_remote_url(repo)?;
+    remote_to_browser_url(&raw)
+}
+
 pub fn detect_origin(repo: &Path) -> Option<RepoOrigin> {
     let url = get_remote_url(repo)?;
     let hostname = extract_hostname(&url)?;
@@ -232,6 +275,7 @@ pub fn collect_project_log(
         project: project_name,
         path: repo.to_string_lossy().to_string(),
         origin: detect_origin(repo),
+        remote_url: browser_url(repo),
         branches: branch_logs,
     })
 }
