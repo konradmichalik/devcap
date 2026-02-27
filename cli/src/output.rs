@@ -15,7 +15,7 @@ pub(crate) fn color_enabled() -> bool {
     *COLOR_ENABLED.get().unwrap_or(&false)
 }
 
-pub fn render_terminal(projects: &[ProjectLog], depth: Depth) {
+pub fn render_terminal(projects: &[ProjectLog], depth: Depth, show_origin: bool) {
     if projects.is_empty() {
         eprintln!("{}", "No commits found for the given period.".dimmed());
         return;
@@ -26,32 +26,51 @@ pub fn render_terminal(projects: &[ProjectLog], depth: Depth) {
             println!();
         }
         match depth {
-            Depth::Projects => render_project_summary(project),
-            Depth::Branches => render_project_with_branches(project),
-            Depth::Commits => render_project(project),
+            Depth::Projects => render_project_summary(project, show_origin),
+            Depth::Branches => render_project_with_branches(project, show_origin),
+            Depth::Commits => render_project_full(project, show_origin),
         }
     }
 }
 
-fn render_project_summary(project: &ProjectLog) {
-    let commits = project.total_commits();
-    let branches = project.branches.len();
-    let latest = project.latest_activity().unwrap_or("-");
-    let summary = format!("({commits} commits, {branches} branches, {latest})").dimmed();
-    if color_enabled() {
-        println!("{} {}  {}", "::".bold().cyan(), project.project.bold().white(), summary);
-    } else {
-        println!("{} {}  {}", "::".bold(), project.project.bold(), summary);
+pub(crate) fn origin_tag(project: &ProjectLog, show_origin: bool) -> String {
+    if !show_origin {
+        return String::new();
+    }
+    match &project.origin {
+        Some(origin) => {
+            let label = format!("[{origin}]");
+            if color_enabled() {
+                format!(" {}", label.magenta())
+            } else {
+                format!(" {label}")
+            }
+        }
+        None => String::new(),
     }
 }
 
-fn render_project_with_branches(project: &ProjectLog) {
+fn render_project_summary(project: &ProjectLog, show_origin: bool) {
+    let commits = project.total_commits();
+    let branches = project.branches.len();
     let latest = project.latest_activity().unwrap_or("-");
+    let origin = origin_tag(project, show_origin);
+    let summary = format!("({commits} commits, {branches} branches, {latest})").dimmed();
+    if color_enabled() {
+        println!("{} {}{}  {}", "::".bold().cyan(), project.project.bold().white(), origin, summary);
+    } else {
+        println!("{} {}{}  {}", "::".bold(), project.project.bold(), origin, summary);
+    }
+}
+
+fn render_project_with_branches(project: &ProjectLog, show_origin: bool) {
+    let latest = project.latest_activity().unwrap_or("-");
+    let origin = origin_tag(project, show_origin);
     let summary = format!("({latest})").dimmed();
     if color_enabled() {
-        println!("{} {}  {}", "::".bold().cyan(), project.project.bold().white(), summary);
+        println!("{} {}{}  {}", "::".bold().cyan(), project.project.bold().white(), origin, summary);
     } else {
-        println!("{} {}  {}", "::".bold(), project.project.bold(), summary);
+        println!("{} {}{}  {}", "::".bold(), project.project.bold(), origin, summary);
     }
     for branch in &project.branches {
         let count = branch.commits.len();
@@ -65,15 +84,20 @@ fn render_project_with_branches(project: &ProjectLog) {
     }
 }
 
-pub(crate) fn render_project(project: &ProjectLog) {
+fn render_project_full(project: &ProjectLog, show_origin: bool) {
+    let origin = origin_tag(project, show_origin);
     if color_enabled() {
-        println!("{} {}", "::".bold().cyan(), project.project.bold().white());
+        println!("{} {}{}", "::".bold().cyan(), project.project.bold().white(), origin);
     } else {
-        println!("{} {}", "::".bold(), project.project.bold());
+        println!("{} {}{}", "::".bold(), project.project.bold(), origin);
     }
     for branch in &project.branches {
         render_branch(branch);
     }
+}
+
+pub(crate) fn render_project(project: &ProjectLog) {
+    render_project_full(project, false);
 }
 
 pub(crate) fn render_branch(branch: &BranchLog) {
@@ -183,6 +207,7 @@ mod tests {
         let projects = vec![ProjectLog {
             project: "test".to_string(),
             path: "/test".to_string(),
+            origin: None,
             branches: vec![BranchLog {
                 name: "main".to_string(),
                 commits: vec![make_commit("test", None)],
@@ -197,6 +222,7 @@ mod tests {
             ProjectLog {
                 project: "a".to_string(),
                 path: "/a".to_string(),
+                origin: None,
                 branches: vec![BranchLog {
                     name: "main".to_string(),
                     commits: vec![make_commit("1", None), make_commit("2", None)],
@@ -205,6 +231,7 @@ mod tests {
             ProjectLog {
                 project: "b".to_string(),
                 path: "/b".to_string(),
+                origin: None,
                 branches: vec![BranchLog {
                     name: "main".to_string(),
                     commits: vec![make_commit("3", None)],

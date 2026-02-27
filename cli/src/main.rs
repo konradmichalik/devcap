@@ -68,14 +68,14 @@ fn main() -> Result<()> {
     }
 
     if cli.interactive {
-        interactive::run(&projects)?;
+        interactive::run(&projects, cli.show_origin)?;
     } else if cli.json {
         println!("{}", output::render_json(&projects));
     } else {
         if !projects.is_empty() {
             println!();
         }
-        output::render_terminal(&projects, cli.depth);
+        output::render_terminal(&projects, cli.depth, cli.show_origin);
     }
 
     Ok(())

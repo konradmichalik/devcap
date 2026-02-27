@@ -46,4 +46,8 @@ pub struct Cli {
     /// Filter by author name (defaults to git config user.name)
     #[arg(short, long)]
     pub author: Option<String>,
+
+    /// Show repository origin (GitHub, GitLab, etc.)
+    #[arg(short = 'o', long)]
+    pub show_origin: bool,
 }

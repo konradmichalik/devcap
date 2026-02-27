@@ -63,15 +63,15 @@ enum Selection {
     Index(usize),
 }
 
-pub fn run(projects: &[ProjectLog]) -> Result<()> {
+pub fn run(projects: &[ProjectLog], show_origin: bool) -> Result<()> {
     let theme = DevcapTheme::new();
 
     loop {
-        match select_project(&theme, projects)? {
+        match select_project(&theme, projects, show_origin)? {
             Selection::Back => return Ok(()),
             Selection::ShowAll => {
                 println!();
-                output::render_terminal(projects, crate::cli::Depth::Commits);
+                output::render_terminal(projects, crate::cli::Depth::Commits, show_origin);
                 println!();
             }
             Selection::Index(idx) => {
@@ -120,11 +120,11 @@ fn browse_branch(
     }
 }
 
-fn select_project(theme: &DevcapTheme, projects: &[ProjectLog]) -> Result<Selection> {
+fn select_project(theme: &DevcapTheme, projects: &[ProjectLog], show_origin: bool) -> Result<Selection> {
     let items: Vec<String> = [QUIT_LABEL, SHOW_ALL_LABEL]
         .into_iter()
         .map(String::from)
-        .chain(projects.iter().map(format_project_item))
+        .chain(projects.iter().map(|p| format_project_item(p, show_origin)))
         .collect();
 
     parse_selection(
@@ -197,10 +197,11 @@ fn show_commit_detail(project: &ProjectLog, commit: &Commit) -> Result<()> {
     Ok(())
 }
 
-fn format_project_item(project: &ProjectLog) -> String {
+fn format_project_item(project: &ProjectLog, show_origin: bool) -> String {
     let commits = project.total_commits();
     let branches = project.branches.len();
     let latest = project.latest_activity().unwrap_or("-");
+    let origin = output::origin_tag(project, show_origin);
     let summary = format!(
         "({} {}, {} {}, {})",
         commits,
@@ -211,9 +212,9 @@ fn format_project_item(project: &ProjectLog) -> String {
     )
     .dimmed();
     if output::color_enabled() {
-        format!("{} {}  {}", "::".bold().cyan(), project.project.bold().white(), summary)
+        format!("{} {}{}  {}", "::".bold().cyan(), project.project.bold().white(), origin, summary)
     } else {
-        format!("{} {}  {}", "::".bold(), project.project.bold(), summary)
+        format!("{} {}{}  {}", "::".bold(), project.project.bold(), origin, summary)
     }
 }
 
@@ -303,12 +304,13 @@ mod tests {
         let project = ProjectLog {
             project: "my-app".to_string(),
             path: "/test".to_string(),
+            origin: None,
             branches: vec![BranchLog {
                 name: "main".to_string(),
                 commits: vec![make_commit("abc", "msg", "1h ago")],
             }],
         };
-        let text = strip_ansi(&format_project_item(&project));
+        let text = strip_ansi(&format_project_item(&project, false));
         assert!(text.contains("my-app"));
         assert!(text.contains("1 commit"));
         assert!(text.contains("1 branch"));
@@ -319,6 +321,7 @@ mod tests {
         let project = ProjectLog {
             project: "my-app".to_string(),
             path: "/test".to_string(),
+            origin: None,
             branches: vec![
                 BranchLog {
                     name: "main".to_string(),
@@ -333,9 +336,41 @@ mod tests {
                 },
             ],
         };
-        let text = strip_ansi(&format_project_item(&project));
+        let text = strip_ansi(&format_project_item(&project, false));
         assert!(text.contains("3 commits"));
         assert!(text.contains("2 branches"));
+    }
+
+    #[test]
+    fn format_project_with_origin() {
+        use devcap_core::model::RepoOrigin;
+        let project = ProjectLog {
+            project: "my-app".to_string(),
+            path: "/test".to_string(),
+            origin: Some(RepoOrigin::GitHub),
+            branches: vec![BranchLog {
+                name: "main".to_string(),
+                commits: vec![make_commit("abc", "msg", "1h ago")],
+            }],
+        };
+        let text = strip_ansi(&format_project_item(&project, true));
+        assert!(text.contains("[GitHub]"));
+    }
+
+    #[test]
+    fn format_project_origin_hidden_when_flag_off() {
+        use devcap_core::model::RepoOrigin;
+        let project = ProjectLog {
+            project: "my-app".to_string(),
+            path: "/test".to_string(),
+            origin: Some(RepoOrigin::GitHub),
+            branches: vec![BranchLog {
+                name: "main".to_string(),
+                commits: vec![make_commit("abc", "msg", "1h ago")],
+            }],
+        };
+        let text = strip_ansi(&format_project_item(&project, false));
+        assert!(!text.contains("[GitHub]"));
     }
 
     #[test]
