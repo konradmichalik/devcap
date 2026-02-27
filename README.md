@@ -83,6 +83,9 @@ devcap -d projects --path ~/Sites -p 7d
 
 # Projects with branches (no individual commits)
 devcap -d branches --path ~/Sites -p 7d
+
+# Show repository origin (GitHub, GitLab, etc.)
+devcap --show-origin --path ~/Sites -p 7d
 ```
 
 ### Interactive Mode
@@ -110,6 +113,18 @@ Use `-d` / `--depth` to control how much detail is shown. Each level includes a 
 | `branches` | Projects + `>> main  (4 commits, 2h ago)` |
 | `commits` | Full tree with all commits (default) |
 
+### Repository Origin
+
+Use `-o` / `--show-origin` to display the hosting platform of each repository, detected from the `origin` remote URL:
+
+```
+:: my-app [GitHub]  (6 commits, 2 branches, 2h ago)
+:: internal-tool [GitLab Self-Hosted]  (1 commit, 1 branch, 3d ago)
+:: local-only  (2 commits, 1 branch, 5h ago)
+```
+
+Supported platforms: GitHub, GitLab, Bitbucket, GitLab Self-Hosted, and custom hostnames. The `origin` field is always included in JSON output regardless of the flag.
+
 ### Options
 
 ```
@@ -122,6 +137,7 @@ Options:
   -i, --interactive        Interactive drill-down mode (projects > branches > commits)
   -d, --depth <DEPTH>      Output depth: projects, branches, commits [default: commits]
   -a, --author <AUTHOR>    Filter by author name (defaults to git config user.name)
+  -o, --show-origin        Show repository origin (GitHub, GitLab, etc.)
   -h, --help               Print help
   -V, --version            Print version
 ```
