@@ -13,7 +13,13 @@ pub struct DevcapConfig {
 }
 
 pub fn load() -> DevcapConfig {
-    try_load().unwrap_or_default()
+    match try_load() {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            eprintln!("Warning: failed to load ~/.devcap.toml: {e}");
+            DevcapConfig::default()
+        }
+    }
 }
 
 fn try_load() -> Result<DevcapConfig> {
@@ -25,8 +31,17 @@ fn try_load() -> Result<DevcapConfig> {
         return Ok(DevcapConfig::default());
     }
     let content = std::fs::read_to_string(&config_path)?;
-    let config: DevcapConfig = toml::from_str(&content)?;
+    let mut config: DevcapConfig = toml::from_str(&content)?;
+    config.path = config.path.map(|p| expand_tilde(p, &home));
     Ok(config)
+}
+
+fn expand_tilde(path: PathBuf, home: &std::path::Path) -> PathBuf {
+    if let Ok(rest) = path.strip_prefix("~") {
+        home.join(rest)
+    } else {
+        path
+    }
 }
 
 #[cfg(test)]
@@ -70,6 +85,27 @@ mod tests {
         assert_eq!(cfg.period.as_deref(), Some("7d"));
         assert_eq!(cfg.show_origin, Some(true));
         assert_eq!(cfg.color, Some(false));
+    }
+
+    #[test]
+    fn tilde_path_is_expanded() {
+        let home = PathBuf::from("/home/user");
+        let result = expand_tilde(PathBuf::from("~/Sites"), &home);
+        assert_eq!(result, PathBuf::from("/home/user/Sites"));
+    }
+
+    #[test]
+    fn absolute_path_is_unchanged() {
+        let home = PathBuf::from("/home/user");
+        let result = expand_tilde(PathBuf::from("/opt/repos"), &home);
+        assert_eq!(result, PathBuf::from("/opt/repos"));
+    }
+
+    #[test]
+    fn tilde_only_expands_to_home() {
+        let home = PathBuf::from("/home/user");
+        let result = expand_tilde(PathBuf::from("~"), &home);
+        assert_eq!(result, PathBuf::from("/home/user"));
     }
 
     #[test]
