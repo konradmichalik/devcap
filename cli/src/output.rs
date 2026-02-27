@@ -9,6 +9,7 @@ static COLOR_ENABLED: OnceLock<bool> = OnceLock::new();
 
 pub fn set_color_enabled(enabled: bool) {
     COLOR_ENABLED.set(enabled).ok();
+    colored::control::set_override(enabled);
 }
 
 pub(crate) fn color_enabled() -> bool {
@@ -79,7 +80,7 @@ fn render_project_with_branches(project: &ProjectLog, show_origin: bool) {
         if color_enabled() {
             println!("  {} {}  {}", ">>".green(), branch.name.green(), branch_summary);
         } else {
-            println!("  {} {}  {}", ">>", branch.name, branch_summary);
+            println!("  >> {}  {}", branch.name, branch_summary);
         }
     }
 }
@@ -104,7 +105,7 @@ pub(crate) fn render_branch(branch: &BranchLog) {
     if color_enabled() {
         println!("  {} {}", ">>".green(), branch.name.green());
     } else {
-        println!("  {} {}", ">>", branch.name);
+        println!("  >> {}", branch.name);
     }
     render_commits(&branch.commits);
 }
