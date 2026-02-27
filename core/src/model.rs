@@ -53,6 +53,8 @@ pub struct ProjectLog {
     pub path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub origin: Option<RepoOrigin>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_url: Option<String>,
     pub branches: Vec<BranchLog>,
 }
 
