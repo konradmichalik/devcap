@@ -14,7 +14,7 @@ name = "wg"
 path = "src/main.rs"
 
 [dependencies]
-devcap-core = { path = "../core" }
+devcap-core = { path = "../core", version = "0.3" }
 clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 colored = "3"

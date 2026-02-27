@@ -3,6 +3,8 @@ name = "devcap-core"
 version.workspace = true
 edition.workspace = true
 description = "Core library for aggregating git commits across repositories"
+license = "MIT"
+repository = "https://github.com/konradmichalik/devcap"
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
