@@ -6,8 +6,8 @@ use dialoguer::FuzzySelect;
 use std::fmt;
 use std::process::Command;
 
-use devcap_core::model::{BranchLog, Commit, ProjectLog};
 use crate::output;
+use devcap_core::model::{BranchLog, Commit, ProjectLog};
 
 const BACK_LABEL: &str = "\u{276e} Back";
 const QUIT_LABEL: &str = "\u{276e} Quit";
@@ -99,11 +99,7 @@ fn browse_project(theme: &DevcapTheme, project: &ProjectLog, show_origin: bool) 
     }
 }
 
-fn browse_branch(
-    theme: &DevcapTheme,
-    project: &ProjectLog,
-    branch: &BranchLog,
-) -> Result<()> {
+fn browse_branch(theme: &DevcapTheme, project: &ProjectLog, branch: &BranchLog) -> Result<()> {
     loop {
         match select_commit(theme, branch)? {
             Selection::Back => return Ok(()),
@@ -120,7 +116,11 @@ fn browse_branch(
     }
 }
 
-fn select_project(theme: &DevcapTheme, projects: &[ProjectLog], show_origin: bool) -> Result<Selection> {
+fn select_project(
+    theme: &DevcapTheme,
+    projects: &[ProjectLog],
+    show_origin: bool,
+) -> Result<Selection> {
     let items: Vec<String> = [QUIT_LABEL, SHOW_ALL_LABEL]
         .into_iter()
         .map(String::from)
@@ -212,22 +212,28 @@ fn format_project_item(project: &ProjectLog, show_origin: bool) -> String {
     )
     .dimmed();
     if output::color_enabled() {
-        format!("{} {}{}  {}", "::".bold().cyan(), project.project.bold().white(), origin, summary)
+        format!(
+            "{} {}{}  {}",
+            "::".bold().cyan(),
+            project.project.bold().white(),
+            origin,
+            summary
+        )
     } else {
-        format!("{} {}{}  {}", "::".bold(), project.project.bold(), origin, summary)
+        format!(
+            "{} {}{}  {}",
+            "::".bold(),
+            project.project.bold(),
+            origin,
+            summary
+        )
     }
 }
 
 fn format_branch_item(branch: &BranchLog) -> String {
     let commits = branch.commits.len();
     let latest = branch.latest_activity().unwrap_or("-");
-    let summary = format!(
-        "({} {}, {})",
-        commits,
-        pluralize("commit", commits),
-        latest,
-    )
-    .dimmed();
+    let summary = format!("({} {}, {})", commits, pluralize("commit", commits), latest,).dimmed();
     if output::color_enabled() {
         format!("{} {}  {}", ">>".green(), branch.name.green(), summary)
     } else {

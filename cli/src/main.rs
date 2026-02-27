@@ -1,18 +1,40 @@
 mod cli;
+mod clipboard;
+mod config;
 mod interactive;
 mod output;
 
+use std::io::IsTerminal;
+use std::path::PathBuf;
+
 use anyhow::Result;
 use clap::Parser;
+use devcap_core::{discovery, git, model, period::Period};
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
-use devcap_core::{discovery, git, model};
 
 fn main() -> Result<()> {
     let cli = cli::Cli::parse();
-    output::set_color_enabled(cli.color);
-    let range = cli.period.to_time_range();
-    let author = cli.author.or_else(git::default_author);
+    let cfg = config::load();
+
+    let period = cli
+        .period
+        .or_else(|| cfg.period.as_deref().and_then(|s| s.parse::<Period>().ok()))
+        .unwrap_or(Period::Today);
+    let path = cli.path.or(cfg.path).unwrap_or_else(|| PathBuf::from("."));
+    let author = cli.author.or(cfg.author).or_else(git::default_author);
+    let show_origin = cli.show_origin || cfg.show_origin.unwrap_or(false);
+
+    let use_color = if cli.no_color || cli.json {
+        false
+    } else if let Some(cfg_color) = cfg.color {
+        cfg_color
+    } else {
+        std::io::stdout().is_terminal()
+    };
+    output::set_color_enabled(use_color);
+
+    let range = period.to_time_range();
     let author_ref = author.as_deref();
 
     let spinner = if !cli.json {
@@ -33,7 +55,7 @@ fn main() -> Result<()> {
         None
     };
 
-    let repos = discovery::find_repos(&cli.path);
+    let repos = discovery::find_repos(&path);
 
     if repos.is_empty() {
         if let Some(sp) = &spinner {
@@ -42,7 +64,7 @@ fn main() -> Result<()> {
         if cli.json {
             println!("[]");
         } else {
-            eprintln!("No git repositories found in: {}", cli.path.display());
+            eprintln!("No git repositories found in: {}", path.display());
         }
         return Ok(());
     }
@@ -68,14 +90,28 @@ fn main() -> Result<()> {
     }
 
     if cli.interactive {
-        interactive::run(&projects, cli.show_origin)?;
+        interactive::run(&projects, show_origin)?;
     } else if cli.json {
         println!("{}", output::render_json(&projects));
     } else {
         if !projects.is_empty() {
             println!();
         }
-        output::render_terminal(&projects, cli.depth, cli.show_origin);
+        output::render_terminal(&projects, cli.depth, show_origin);
+    }
+
+    if cli.copy {
+        let text = clipboard::render_plain(&projects, cli.depth, show_origin);
+        match arboard::Clipboard::new() {
+            Ok(mut cb) => {
+                if let Err(e) = cb.set_text(&text) {
+                    eprintln!("Warning: could not copy to clipboard: {e}");
+                } else {
+                    eprintln!("Copied to clipboard.");
+                }
+            }
+            Err(e) => eprintln!("Warning: clipboard unavailable: {e}"),
+        }
     }
 
     Ok(())

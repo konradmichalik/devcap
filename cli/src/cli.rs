@@ -1,5 +1,5 @@
-use devcap_core::period::Period;
 use clap::{Parser, ValueEnum};
+use devcap_core::period::Period;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -20,20 +20,20 @@ pub enum Depth {
 )]
 pub struct Cli {
     /// Time period: today, yesterday, 24h, 3d, 7d, week
-    #[arg(short, long, default_value = "today")]
-    pub period: Period,
+    #[arg(short, long)]
+    pub period: Option<Period>,
 
     /// Root directory to scan for git repos
-    #[arg(long, default_value = ".")]
-    pub path: PathBuf,
+    #[arg(long)]
+    pub path: Option<PathBuf>,
 
     /// Output as JSON
     #[arg(long)]
     pub json: bool,
 
-    /// Enable colored output for commit types and markers
-    #[arg(short, long)]
-    pub color: bool,
+    /// Disable colored output (overrides TTY auto-detection)
+    #[arg(long)]
+    pub no_color: bool,
 
     /// Interactive drill-down mode (projects > branches > commits)
     #[arg(short, long, conflicts_with = "json")]
@@ -50,4 +50,8 @@ pub struct Cli {
     /// Show repository origin (GitHub, GitLab, etc.)
     #[arg(short = 'o', long)]
     pub show_origin: bool,
+
+    /// Copy output to clipboard as plain text (for stand-ups)
+    #[arg(long)]
+    pub copy: bool,
 }

@@ -9,6 +9,7 @@ static COLOR_ENABLED: OnceLock<bool> = OnceLock::new();
 
 pub fn set_color_enabled(enabled: bool) {
     COLOR_ENABLED.set(enabled).ok();
+    colored::control::set_override(enabled);
 }
 
 pub(crate) fn color_enabled() -> bool {
@@ -57,9 +58,21 @@ fn render_project_summary(project: &ProjectLog, show_origin: bool) {
     let origin = origin_tag(project, show_origin);
     let summary = format!("({commits} commits, {branches} branches, {latest})").dimmed();
     if color_enabled() {
-        println!("{} {}{}  {}", "::".bold().cyan(), project.project.bold().white(), origin, summary);
+        println!(
+            "{} {}{}  {}",
+            "::".bold().cyan(),
+            project.project.bold().white(),
+            origin,
+            summary
+        );
     } else {
-        println!("{} {}{}  {}", "::".bold(), project.project.bold(), origin, summary);
+        println!(
+            "{} {}{}  {}",
+            "::".bold(),
+            project.project.bold(),
+            origin,
+            summary
+        );
     }
 }
 
@@ -68,18 +81,35 @@ fn render_project_with_branches(project: &ProjectLog, show_origin: bool) {
     let origin = origin_tag(project, show_origin);
     let summary = format!("({latest})").dimmed();
     if color_enabled() {
-        println!("{} {}{}  {}", "::".bold().cyan(), project.project.bold().white(), origin, summary);
+        println!(
+            "{} {}{}  {}",
+            "::".bold().cyan(),
+            project.project.bold().white(),
+            origin,
+            summary
+        );
     } else {
-        println!("{} {}{}  {}", "::".bold(), project.project.bold(), origin, summary);
+        println!(
+            "{} {}{}  {}",
+            "::".bold(),
+            project.project.bold(),
+            origin,
+            summary
+        );
     }
     for branch in &project.branches {
         let count = branch.commits.len();
         let branch_latest = branch.latest_activity().unwrap_or("-");
         let branch_summary = format!("({count} commits, {branch_latest})").dimmed();
         if color_enabled() {
-            println!("  {} {}  {}", ">>".green(), branch.name.green(), branch_summary);
+            println!(
+                "  {} {}  {}",
+                ">>".green(),
+                branch.name.green(),
+                branch_summary
+            );
         } else {
-            println!("  {} {}  {}", ">>", branch.name, branch_summary);
+            println!("  >> {}  {}", branch.name, branch_summary);
         }
     }
 }
@@ -87,7 +117,12 @@ fn render_project_with_branches(project: &ProjectLog, show_origin: bool) {
 fn render_project_full(project: &ProjectLog, show_origin: bool) {
     let origin = origin_tag(project, show_origin);
     if color_enabled() {
-        println!("{} {}{}", "::".bold().cyan(), project.project.bold().white(), origin);
+        println!(
+            "{} {}{}",
+            "::".bold().cyan(),
+            project.project.bold().white(),
+            origin
+        );
     } else {
         println!("{} {}{}", "::".bold(), project.project.bold(), origin);
     }
@@ -104,7 +139,7 @@ pub(crate) fn render_branch(branch: &BranchLog) {
     if color_enabled() {
         println!("  {} {}", ">>".green(), branch.name.green());
     } else {
-        println!("  {} {}", ">>", branch.name);
+        println!("  >> {}", branch.name);
     }
     render_commits(&branch.commits);
 }
