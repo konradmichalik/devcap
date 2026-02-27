@@ -45,6 +45,15 @@ To update to the latest version:
 brew upgrade konradmichalik/tap/devcap
 ```
 
+### As a library
+
+Use [`devcap-core`](core/) to build your own tools on top of the commit aggregation engine:
+
+```toml
+[dependencies]
+devcap-core = "0.3"
+```
+
 ### From source
 
 ```bash
@@ -131,6 +140,7 @@ Each entry in the JSON array follows this shape:
 {
   "project": "my-app",
   "path": "/Users/me/Sites/my-app",
+  "origin": "github",
   "branches": [
     {
       "name": "main",

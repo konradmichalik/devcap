@@ -4,7 +4,7 @@ use std::process::Command;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Local};
 
-use crate::model::{BranchLog, Commit, ProjectLog};
+use crate::model::{BranchLog, Commit, ProjectLog, RepoOrigin};
 use crate::period::TimeRange;
 
 pub fn default_author() -> Option<String> {
@@ -134,6 +134,60 @@ fn format_relative(now: DateTime<Local>, then: DateTime<Local>) -> String {
     }
 }
 
+fn get_remote_url(repo: &Path) -> Option<String> {
+    let output = Command::new("git")
+        .args(["-C", &repo.to_string_lossy(), "remote", "get-url", "origin"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let url = String::from_utf8(output.stdout).ok()?.trim().to_string();
+    if url.is_empty() { None } else { Some(url) }
+}
+
+fn extract_hostname(url: &str) -> Option<&str> {
+    // SSH: git@github.com:user/repo.git
+    if let Some(rest) = url.strip_prefix("git@") {
+        return rest.split(':').next();
+    }
+    // SSH variant: ssh://git@host/...
+    if let Some(rest) = url.strip_prefix("ssh://") {
+        let after_at = rest.split('@').last()?;
+        return after_at.split('/').next().map(|h| h.split(':').next().unwrap_or(h));
+    }
+    // HTTPS: https://github.com/user/repo.git
+    if url.starts_with("https://") || url.starts_with("http://") {
+        let without_scheme = url.split("://").nth(1)?;
+        let after_auth = without_scheme.split('@').last()?;
+        return after_auth.split('/').next();
+    }
+    None
+}
+
+fn classify_host(hostname: &str) -> RepoOrigin {
+    let lower = hostname.to_lowercase();
+    if lower == "github.com" {
+        RepoOrigin::GitHub
+    } else if lower == "gitlab.com" {
+        RepoOrigin::GitLab
+    } else if lower == "bitbucket.org" {
+        RepoOrigin::Bitbucket
+    } else if lower.contains("gitlab") {
+        RepoOrigin::GitLabSelfHosted
+    } else {
+        RepoOrigin::Custom(hostname.to_string())
+    }
+}
+
+pub fn detect_origin(repo: &Path) -> Option<RepoOrigin> {
+    let url = get_remote_url(repo)?;
+    let hostname = extract_hostname(&url)?;
+    Some(classify_host(hostname))
+}
+
 pub fn collect_project_log(
     repo: &Path,
     range: &TimeRange,
@@ -170,6 +224,7 @@ pub fn collect_project_log(
     Some(ProjectLog {
         project: project_name,
         path: repo.to_string_lossy().to_string(),
+        origin: detect_origin(repo),
         branches: branch_logs,
     })
 }
@@ -269,5 +324,103 @@ mod tests {
         assert!(is_primary_branch("master"));
         assert!(!is_primary_branch("feature/auth"));
         assert!(!is_primary_branch("develop"));
+    }
+
+    #[test]
+    fn extract_hostname_https() {
+        assert_eq!(
+            extract_hostname("https://github.com/user/repo.git"),
+            Some("github.com")
+        );
+        assert_eq!(
+            extract_hostname("https://gitlab.com/group/project"),
+            Some("gitlab.com")
+        );
+    }
+
+    #[test]
+    fn extract_hostname_http() {
+        assert_eq!(
+            extract_hostname("http://gitea.local/org/repo"),
+            Some("gitea.local")
+        );
+    }
+
+    #[test]
+    fn extract_hostname_ssh_git_at() {
+        assert_eq!(
+            extract_hostname("git@github.com:user/repo.git"),
+            Some("github.com")
+        );
+        assert_eq!(
+            extract_hostname("git@gitlab.company.de:group/project.git"),
+            Some("gitlab.company.de")
+        );
+    }
+
+    #[test]
+    fn extract_hostname_ssh_scheme() {
+        assert_eq!(
+            extract_hostname("ssh://git@bitbucket.org/team/repo.git"),
+            Some("bitbucket.org")
+        );
+        assert_eq!(
+            extract_hostname("ssh://git@gitlab.internal:2222/group/repo.git"),
+            Some("gitlab.internal")
+        );
+    }
+
+    #[test]
+    fn extract_hostname_https_with_auth() {
+        assert_eq!(
+            extract_hostname("https://token@github.com/user/repo.git"),
+            Some("github.com")
+        );
+    }
+
+    #[test]
+    fn extract_hostname_empty() {
+        assert_eq!(extract_hostname(""), None);
+        assert_eq!(extract_hostname("not-a-url"), None);
+    }
+
+    #[test]
+    fn classify_github() {
+        assert_eq!(classify_host("github.com"), RepoOrigin::GitHub);
+        assert_eq!(classify_host("GitHub.com"), RepoOrigin::GitHub);
+    }
+
+    #[test]
+    fn classify_gitlab() {
+        assert_eq!(classify_host("gitlab.com"), RepoOrigin::GitLab);
+    }
+
+    #[test]
+    fn classify_bitbucket() {
+        assert_eq!(classify_host("bitbucket.org"), RepoOrigin::Bitbucket);
+    }
+
+    #[test]
+    fn classify_gitlab_self_hosted() {
+        assert_eq!(
+            classify_host("gitlab.company.de"),
+            RepoOrigin::GitLabSelfHosted
+        );
+        assert_eq!(
+            classify_host("gitlab.internal"),
+            RepoOrigin::GitLabSelfHosted
+        );
+    }
+
+    #[test]
+    fn classify_custom() {
+        assert_eq!(
+            classify_host("gitea.local"),
+            RepoOrigin::Custom("gitea.local".to_string())
+        );
+        assert_eq!(
+            classify_host("codeberg.org"),
+            RepoOrigin::Custom("codeberg.org".to_string())
+        );
     }
 }
