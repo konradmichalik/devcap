@@ -210,7 +210,11 @@ fn parse_commit_line(line: &str, now: DateTime<Local>) -> Option<Commit> {
 fn detect_commit_type(message: &str) -> Option<String> {
     let prefix = message.split([':', '(']).next()?;
     let trimmed = prefix.trim();
-    if !trimmed.is_empty() && trimmed.chars().all(|c| c.is_ascii_lowercase() || c == '-') {
+    let is_kebab_case = !trimmed.is_empty()
+        && trimmed
+            .split('-')
+            .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_lowercase()));
+    if is_kebab_case {
         Some(trimmed.to_string())
     } else {
         None
@@ -520,6 +524,16 @@ mod tests {
             detect_commit_type("release: v1.0.0"),
             Some("release".to_string())
         );
+    }
+
+    #[test]
+    fn detect_none_for_lone_hyphen() {
+        assert_eq!(detect_commit_type("-: bad"), None);
+    }
+
+    #[test]
+    fn detect_none_for_double_hyphen() {
+        assert_eq!(detect_commit_type("feat--api: bad"), None);
     }
 
     #[test]
