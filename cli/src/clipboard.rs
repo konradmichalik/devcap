@@ -36,8 +36,9 @@ fn render_project_summary(out: &mut String, project: &ProjectLog, show_origin: b
     let branches = project.branches.len();
     let latest = project.latest_activity().unwrap_or("-");
     let origin = origin_suffix(project, show_origin);
+    let stat = output::stat_suffix_standalone(project.diff_stat.as_ref());
     out.push_str(&format!(
-        ":: {}{}  ({commits} commits, {branches} branches, {latest})\n",
+        ":: {}{}  ({commits} commits, {branches} branches, {latest}{stat})\n",
         project.project, origin
     ));
 }
@@ -45,12 +46,17 @@ fn render_project_summary(out: &mut String, project: &ProjectLog, show_origin: b
 fn render_project_branches(out: &mut String, project: &ProjectLog, show_origin: bool) {
     let latest = project.latest_activity().unwrap_or("-");
     let origin = origin_suffix(project, show_origin);
-    out.push_str(&format!(":: {}{}  ({latest})\n", project.project, origin));
+    let stat = output::stat_suffix_standalone(project.diff_stat.as_ref());
+    out.push_str(&format!(
+        ":: {}{}  ({latest}{stat})\n",
+        project.project, origin
+    ));
     for branch in &project.branches {
         let count = branch.commits.len();
         let branch_latest = branch.latest_activity().unwrap_or("-");
+        let bstat = output::stat_suffix_standalone(branch.diff_stat.as_ref());
         out.push_str(&format!(
-            "  >> {}  ({count} commits, {branch_latest})\n",
+            "  >> {}  ({count} commits, {branch_latest}{bstat})\n",
             branch.name
         ));
     }
@@ -58,17 +64,20 @@ fn render_project_branches(out: &mut String, project: &ProjectLog, show_origin: 
 
 fn render_project_full(out: &mut String, project: &ProjectLog, show_origin: bool) {
     let origin = origin_suffix(project, show_origin);
-    out.push_str(&format!(":: {}{}\n", project.project, origin));
+    let stat = output::stat_suffix_inline(project.diff_stat.as_ref());
+    out.push_str(&format!(":: {}{}{stat}\n", project.project, origin));
     for branch in &project.branches {
-        out.push_str(&format!("  >> {}\n", branch.name));
+        let bstat = output::stat_suffix_inline(branch.diff_stat.as_ref());
+        out.push_str(&format!("  >> {}{bstat}\n", branch.name));
         for commit in &branch.commits {
             let tag = match commit.commit_type.as_deref() {
                 Some(t) => format!("{t} - "),
                 None => String::new(),
             };
             let msg = output::strip_type_prefix(&commit.message);
+            let cstat = output::stat_suffix_inline(commit.diff_stat.as_ref());
             out.push_str(&format!(
-                "    * {} {}{msg}  {}\n",
+                "    * {} {}{msg}  {}{cstat}\n",
                 commit.hash, tag, commit.relative_time
             ));
         }
@@ -89,6 +98,7 @@ mod tests {
             time: Local::now(),
             relative_time: "1h ago".to_string(),
             url: None,
+            diff_stat: None,
         }
     }
 
@@ -105,7 +115,9 @@ mod tests {
                     make_commit("abc1234", "feat: add login", Some("feat")),
                     make_commit("def5678", "fix: resolve crash", Some("fix")),
                 ],
+                diff_stat: None,
             }],
+            diff_stat: None,
         }
     }
 
@@ -179,7 +191,9 @@ mod tests {
                 name: "main".to_string(),
                 url: None,
                 commits: vec![make_commit("aaa1111", "update readme", None)],
+                diff_stat: None,
             }],
+            diff_stat: None,
         }];
         let text = render_plain(&projects, Depth::Commits, false);
         assert!(text.contains("aaa1111 update readme"));

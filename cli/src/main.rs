@@ -24,6 +24,7 @@ fn main() -> Result<()> {
     let path = cli.path.or(cfg.path).unwrap_or_else(|| PathBuf::from("."));
     let author = cli.author.or(cfg.author).or_else(git::default_author);
     let show_origin = cli.show_origin || cfg.show_origin.unwrap_or(false);
+    let with_stat = cli.stat || cfg.stat.unwrap_or(false);
 
     let use_color = if cli.no_color || cli.json {
         false
@@ -71,7 +72,7 @@ fn main() -> Result<()> {
 
     let mut projects: Vec<_> = repos
         .par_iter()
-        .filter_map(|repo| git::collect_project_log(repo, &range, author_ref))
+        .filter_map(|repo| git::collect_project_log(repo, &range, author_ref, with_stat))
         .collect();
 
     projects.sort_by(|a, b| {

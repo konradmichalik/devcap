@@ -202,13 +202,15 @@ fn format_project_item(project: &ProjectLog, show_origin: bool) -> String {
     let branches = project.branches.len();
     let latest = project.latest_activity().unwrap_or("-");
     let origin = output::origin_tag(project, show_origin);
+    let stat_suffix = output::stat_suffix_standalone(project.diff_stat.as_ref());
     let summary = format!(
-        "({} {}, {} {}, {})",
+        "({} {}, {} {}, {}{})",
         commits,
         pluralize("commit", commits),
         branches,
         pluralize("branch", branches),
         latest,
+        stat_suffix,
     )
     .dimmed();
     if output::color_enabled() {
@@ -233,7 +235,15 @@ fn format_project_item(project: &ProjectLog, show_origin: bool) -> String {
 fn format_branch_item(branch: &BranchLog) -> String {
     let commits = branch.commits.len();
     let latest = branch.latest_activity().unwrap_or("-");
-    let summary = format!("({} {}, {})", commits, pluralize("commit", commits), latest,).dimmed();
+    let stat_suffix = output::stat_suffix_standalone(branch.diff_stat.as_ref());
+    let summary = format!(
+        "({} {}, {}{})",
+        commits,
+        pluralize("commit", commits),
+        latest,
+        stat_suffix,
+    )
+    .dimmed();
     if output::color_enabled() {
         format!("{} {}  {}", ">>".green(), branch.name.green(), summary)
     } else {
@@ -244,20 +254,23 @@ fn format_branch_item(branch: &BranchLog) -> String {
 fn format_commit_item(commit: &Commit) -> String {
     let tag = output::commit_type_tag(commit);
     let msg = output::strip_type_prefix(&commit.message);
+    let stat = output::stat_suffix_inline(commit.diff_stat.as_ref());
     if tag.is_empty() {
         format!(
-            "{} - {}  {}",
+            "{} - {}  {}{}",
             commit.hash.dimmed(),
             msg,
             commit.relative_time.dimmed(),
+            stat.dimmed(),
         )
     } else {
         format!(
-            "{} {} - {}  {}",
+            "{} {} - {}  {}{}",
             commit.hash.dimmed(),
             tag,
             msg,
             commit.relative_time.dimmed(),
+            stat.dimmed(),
         )
     }
 }
@@ -286,6 +299,7 @@ mod tests {
             time: Local::now(),
             relative_time: relative.to_string(),
             url: None,
+            diff_stat: None,
         }
     }
 
@@ -317,7 +331,9 @@ mod tests {
                 name: "main".to_string(),
                 url: None,
                 commits: vec![make_commit("abc", "msg", "1h ago")],
+                diff_stat: None,
             }],
+            diff_stat: None,
         };
         let text = strip_ansi(&format_project_item(&project, false));
         assert!(text.contains("my-app"));
@@ -340,13 +356,16 @@ mod tests {
                         make_commit("a", "m1", "1h ago"),
                         make_commit("b", "m2", "2h ago"),
                     ],
+                    diff_stat: None,
                 },
                 BranchLog {
                     name: "dev".to_string(),
                     url: None,
                     commits: vec![make_commit("c", "m3", "3h ago")],
+                    diff_stat: None,
                 },
             ],
+            diff_stat: None,
         };
         let text = strip_ansi(&format_project_item(&project, false));
         assert!(text.contains("3 commits"));
@@ -365,7 +384,9 @@ mod tests {
                 name: "main".to_string(),
                 url: None,
                 commits: vec![make_commit("abc", "msg", "1h ago")],
+                diff_stat: None,
             }],
+            diff_stat: None,
         };
         let text = strip_ansi(&format_project_item(&project, true));
         assert!(text.contains("[GitHub]"));
@@ -383,7 +404,9 @@ mod tests {
                 name: "main".to_string(),
                 url: None,
                 commits: vec![make_commit("abc", "msg", "1h ago")],
+                diff_stat: None,
             }],
+            diff_stat: None,
         };
         let text = strip_ansi(&format_project_item(&project, false));
         assert!(!text.contains("[GitHub]"));
@@ -395,6 +418,7 @@ mod tests {
             name: "feature/auth".to_string(),
             url: None,
             commits: vec![make_commit("a", "m", "1h ago")],
+            diff_stat: None,
         };
         let text = strip_ansi(&format_branch_item(&branch));
         assert!(text.contains("feature/auth"));
@@ -410,6 +434,7 @@ mod tests {
                 make_commit("a", "m1", "1h ago"),
                 make_commit("b", "m2", "2h ago"),
             ],
+            diff_stat: None,
         };
         let text = strip_ansi(&format_branch_item(&branch));
         assert!(text.contains("main"));

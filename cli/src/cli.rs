@@ -51,6 +51,10 @@ pub struct Cli {
     #[arg(short = 'o', long)]
     pub show_origin: bool,
 
+    /// Show diff stats (+insertions -deletions ~files) per commit
+    #[arg(short = 's', long)]
+    pub stat: bool,
+
     /// Copy output to clipboard as plain text (for stand-ups)
     #[arg(long)]
     pub copy: bool,

@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use colored::Colorize;
 
 use crate::cli::Depth;
-use devcap_core::model::{BranchLog, Commit, ProjectLog};
+use devcap_core::model::{BranchLog, Commit, DiffStat, ProjectLog};
 
 static COLOR_ENABLED: OnceLock<bool> = OnceLock::new();
 
@@ -51,12 +51,39 @@ pub(crate) fn origin_tag(project: &ProjectLog, show_origin: bool) -> String {
     }
 }
 
+pub(crate) fn format_diff_stat_inline(stat: &DiffStat) -> String {
+    let files_label = if stat.files_changed == 1 {
+        "file"
+    } else {
+        "files"
+    };
+    format!(
+        "+{} -{} | {} {files_label}",
+        stat.insertions, stat.deletions, stat.files_changed
+    )
+}
+
+pub(crate) fn format_diff_stat(stat: &DiffStat) -> String {
+    format!("({})", format_diff_stat_inline(stat))
+}
+
+pub(crate) fn stat_suffix_standalone(stat: Option<&DiffStat>) -> String {
+    stat.map(|s| format!(", {}", format_diff_stat_inline(s)))
+        .unwrap_or_default()
+}
+
+pub(crate) fn stat_suffix_inline(stat: Option<&DiffStat>) -> String {
+    stat.map(|s| format!("  {}", format_diff_stat(s)))
+        .unwrap_or_default()
+}
+
 fn render_project_summary(project: &ProjectLog, show_origin: bool) {
     let commits = project.total_commits();
     let branches = project.branches.len();
     let latest = project.latest_activity().unwrap_or("-");
     let origin = origin_tag(project, show_origin);
-    let summary = format!("({commits} commits, {branches} branches, {latest})").dimmed();
+    let stat = stat_suffix_standalone(project.diff_stat.as_ref());
+    let summary = format!("({commits} commits, {branches} branches, {latest}{stat})").dimmed();
     if color_enabled() {
         println!(
             "{} {}{}  {}",
@@ -79,7 +106,8 @@ fn render_project_summary(project: &ProjectLog, show_origin: bool) {
 fn render_project_with_branches(project: &ProjectLog, show_origin: bool) {
     let latest = project.latest_activity().unwrap_or("-");
     let origin = origin_tag(project, show_origin);
-    let summary = format!("({latest})").dimmed();
+    let stat = stat_suffix_standalone(project.diff_stat.as_ref());
+    let summary = format!("({latest}{stat})").dimmed();
     if color_enabled() {
         println!(
             "{} {}{}  {}",
@@ -100,7 +128,8 @@ fn render_project_with_branches(project: &ProjectLog, show_origin: bool) {
     for branch in &project.branches {
         let count = branch.commits.len();
         let branch_latest = branch.latest_activity().unwrap_or("-");
-        let branch_summary = format!("({count} commits, {branch_latest})").dimmed();
+        let bstat = stat_suffix_standalone(branch.diff_stat.as_ref());
+        let branch_summary = format!("({count} commits, {branch_latest}{bstat})").dimmed();
         if color_enabled() {
             println!(
                 "  {} {}  {}",
@@ -116,15 +145,17 @@ fn render_project_with_branches(project: &ProjectLog, show_origin: bool) {
 
 fn render_project_full(project: &ProjectLog, show_origin: bool) {
     let origin = origin_tag(project, show_origin);
+    let stat_str = stat_suffix_inline(project.diff_stat.as_ref()).dimmed();
     if color_enabled() {
         println!(
-            "{} {}{}",
+            "{} {}{}{}",
             "::".bold().cyan(),
             project.project.bold().white(),
-            origin
+            origin,
+            stat_str
         );
     } else {
-        println!("{} {}{}", "::".bold(), project.project.bold(), origin);
+        println!("{} {}{}{}", "::".bold(), project.project.bold(), origin, stat_str);
     }
     for branch in &project.branches {
         render_branch(branch);
@@ -136,10 +167,11 @@ pub(crate) fn render_project(project: &ProjectLog, show_origin: bool) {
 }
 
 pub(crate) fn render_branch(branch: &BranchLog) {
+    let stat = stat_suffix_inline(branch.diff_stat.as_ref()).dimmed();
     if color_enabled() {
-        println!("  {} {}", ">>".green(), branch.name.green());
+        println!("  {} {}{}", ">>".green(), branch.name.green(), stat);
     } else {
-        println!("  >> {}", branch.name);
+        println!("  >> {}{}", branch.name, stat);
     }
     render_commits(&branch.commits);
 }
@@ -148,22 +180,25 @@ fn render_commits(commits: &[Commit]) {
     for commit in commits {
         let tag = commit_type_tag(commit);
         let msg = strip_type_prefix(&commit.message);
+        let stat = stat_suffix_inline(commit.diff_stat.as_ref()).dimmed();
         if tag.is_empty() {
             println!(
-                "    {} {} - {}  {}",
+                "    {} {} - {}  {}{}",
                 "*".dimmed(),
                 commit.hash.dimmed(),
                 msg,
                 commit.relative_time.dimmed(),
+                stat,
             );
         } else {
             println!(
-                "    {} {} {} - {}  {}",
+                "    {} {} {} - {}  {}{}",
                 "*".dimmed(),
                 commit.hash.dimmed(),
                 tag,
                 msg,
                 commit.relative_time.dimmed(),
+                stat,
             );
         }
     }
@@ -230,6 +265,7 @@ mod tests {
             time: Local::now(),
             relative_time: "1h ago".to_string(),
             url: None,
+            diff_stat: None,
         }
     }
 
@@ -249,7 +285,9 @@ mod tests {
                 name: "main".to_string(),
                 url: None,
                 commits: vec![make_commit("test", None)],
+                diff_stat: None,
             }],
+            diff_stat: None,
         }];
         assert_eq!(summary_line(&projects), "Found 1 commit in 1 project");
     }
@@ -266,7 +304,9 @@ mod tests {
                     name: "main".to_string(),
                     url: None,
                     commits: vec![make_commit("1", None), make_commit("2", None)],
+                    diff_stat: None,
                 }],
+                diff_stat: None,
             },
             ProjectLog {
                 project: "b".to_string(),
@@ -277,7 +317,9 @@ mod tests {
                     name: "main".to_string(),
                     url: None,
                     commits: vec![make_commit("3", None)],
+                    diff_stat: None,
                 }],
+                diff_stat: None,
             },
         ];
         assert_eq!(summary_line(&projects), "Found 3 commits in 2 projects");

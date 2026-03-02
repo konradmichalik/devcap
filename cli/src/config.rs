@@ -10,6 +10,7 @@ pub struct DevcapConfig {
     pub period: Option<String>,
     pub show_origin: Option<bool>,
     pub color: Option<bool>,
+    pub stat: Option<bool>,
 }
 
 pub fn load() -> DevcapConfig {
@@ -56,6 +57,7 @@ mod tests {
         assert!(cfg.period.is_none());
         assert!(cfg.show_origin.is_none());
         assert!(cfg.color.is_none());
+        assert!(cfg.stat.is_none());
     }
 
     #[test]
@@ -78,6 +80,7 @@ mod tests {
             period = "7d"
             show_origin = true
             color = false
+            stat = true
         "#;
         let cfg: DevcapConfig = toml::from_str(toml_str).expect("parse failed");
         assert_eq!(cfg.path, Some(PathBuf::from("/home/user/projects")));
@@ -85,6 +88,7 @@ mod tests {
         assert_eq!(cfg.period.as_deref(), Some("7d"));
         assert_eq!(cfg.show_origin, Some(true));
         assert_eq!(cfg.color, Some(false));
+        assert_eq!(cfg.stat, Some(true));
     }
 
     #[test]
