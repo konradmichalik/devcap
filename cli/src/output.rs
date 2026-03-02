@@ -155,7 +155,13 @@ fn render_project_full(project: &ProjectLog, show_origin: bool) {
             stat_str
         );
     } else {
-        println!("{} {}{}{}", "::".bold(), project.project.bold(), origin, stat_str);
+        println!(
+            "{} {}{}{}",
+            "::".bold(),
+            project.project.bold(),
+            origin,
+            stat_str
+        );
     }
     for branch in &project.branches {
         render_branch(branch);

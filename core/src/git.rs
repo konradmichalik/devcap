@@ -781,12 +781,18 @@ mod tests {
         let (commits, files) = parse_log_output(&input, now, true);
         assert_eq!(commits.len(), 2);
 
-        let s0 = commits[0].diff_stat.as_ref().unwrap();
+        let s0 = commits[0]
+            .diff_stat
+            .as_ref()
+            .expect("commit 0 should have diff_stat");
         assert_eq!(s0.insertions, 13);
         assert_eq!(s0.deletions, 1);
         assert_eq!(s0.files_changed, 2);
 
-        let s1 = commits[1].diff_stat.as_ref().unwrap();
+        let s1 = commits[1]
+            .diff_stat
+            .as_ref()
+            .expect("commit 1 should have diff_stat");
         assert_eq!(s1.insertions, 2);
         assert_eq!(s1.deletions, 5);
         assert_eq!(s1.files_changed, 1);
