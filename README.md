@@ -36,6 +36,9 @@ Scans a directory tree for git repos in parallel, filters commits by author and 
 
 ### Homebrew (macOS)
 
+[![Homebrew version](https://img.shields.io/endpoint?url=https%3A%2F%2Fkonradmichalik.github.io%2Fhomebrew-tap%2Fbadges%2Fdevcap-version.json&style=flat-square&logo=homebrew)](https://github.com/konradmichalik/homebrew-tap)
+[![Homebrew downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fkonradmichalik.github.io%2Fhomebrew-tap%2Fbadges%2Fdevcap-downloads.json&style=flat-square&logo=homebrew)](https://github.com/konradmichalik/homebrew-tap)
+
 ```bash
 brew install konradmichalik/tap/devcap
 ```
