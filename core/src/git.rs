@@ -4,6 +4,7 @@ use std::process::Command;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Local};
+use rayon::prelude::*;
 
 use crate::model::{BranchLog, Commit, DiffStat, ProjectLog, RepoOrigin};
 use crate::period::TimeRange;
@@ -380,6 +381,26 @@ fn urlencoded(s: &str) -> String {
         .replace('?', "%3F")
 }
 
+/// Sum branch-level diff stats into a project-level stat, de-duplicating the
+/// changed files across branches.
+fn project_diff_stat(branch_data: &[(BranchLog, HashSet<String>)]) -> DiffStat {
+    let mut files: HashSet<&str> = HashSet::new();
+    let mut insertions = 0u32;
+    let mut deletions = 0u32;
+    for (branch, branch_files) in branch_data {
+        if let Some(stat) = &branch.diff_stat {
+            insertions += stat.insertions;
+            deletions += stat.deletions;
+            files.extend(branch_files.iter().map(String::as_str));
+        }
+    }
+    DiffStat {
+        files_changed: files.len() as u32,
+        insertions,
+        deletions,
+    }
+}
+
 pub fn collect_project_log(
     repo: &Path,
     range: &TimeRange,
@@ -391,62 +412,53 @@ pub fn collect_project_log(
     let origin = detect_origin(repo);
     let remote = browser_url(repo);
 
-    let mut project_files: HashSet<String> = HashSet::new();
-    let mut project_insertions: u32 = 0;
-    let mut project_deletions: u32 = 0;
-
-    let mut branch_logs: Vec<BranchLog> = branches
-        .into_iter()
+    // Collect per-branch logs in parallel: log_branch spawns one `git log`
+    // process per branch and dominates the per-repo runtime.
+    let branch_data: Vec<(BranchLog, HashSet<String>)> = branches
+        .par_iter()
         .filter_map(|branch_name| {
             let (mut commits, branch_stat, branch_file_set) =
-                log_branch(repo, &branch_name, range, author, with_stat).ok()?;
+                log_branch(repo, branch_name, range, author, with_stat).ok()?;
             if commits.is_empty() {
-                None
-            } else {
-                if let Some(base) = &remote {
-                    for c in &mut commits {
-                        c.url = Some(commit_url(base, origin.as_ref(), &c.hash));
-                    }
+                return None;
+            }
+            if let Some(base) = &remote {
+                for c in &mut commits {
+                    c.url = Some(commit_url(base, origin.as_ref(), &c.hash));
                 }
-                let b_url = remote
-                    .as_deref()
-                    .map(|base| branch_url(base, origin.as_ref(), &branch_name));
-
-                if let Some(stat) = &branch_stat {
-                    project_insertions += stat.insertions;
-                    project_deletions += stat.deletions;
-                    project_files.extend(branch_file_set);
-                }
-
-                Some(BranchLog {
-                    name: branch_name,
+            }
+            let b_url = remote
+                .as_deref()
+                .map(|base| branch_url(base, origin.as_ref(), branch_name));
+            Some((
+                BranchLog {
+                    name: branch_name.clone(),
                     url: b_url,
                     commits,
                     diff_stat: branch_stat,
-                })
-            }
+                },
+                branch_file_set,
+            ))
         })
         .collect();
 
-    if branch_logs.is_empty() {
+    if branch_data.is_empty() {
         return None;
     }
+
+    let project_stat = if with_stat {
+        Some(project_diff_stat(&branch_data))
+    } else {
+        None
+    };
+
+    let mut branch_logs: Vec<BranchLog> = branch_data.into_iter().map(|(b, _)| b).collect();
 
     branch_logs.sort_by(|a, b| {
         let a_primary = is_primary_branch(&a.name);
         let b_primary = is_primary_branch(&b.name);
         b_primary.cmp(&a_primary).then_with(|| a.name.cmp(&b.name))
     });
-
-    let project_stat = if with_stat {
-        Some(DiffStat {
-            files_changed: project_files.len() as u32,
-            insertions: project_insertions,
-            deletions: project_deletions,
-        })
-    } else {
-        None
-    };
 
     Some(ProjectLog {
         project: project_name,
@@ -834,5 +846,49 @@ mod tests {
         assert_eq!(commits.len(), 1);
         assert!(commits[0].diff_stat.is_none());
         assert!(files.is_empty());
+    }
+
+    fn branch_with_stat(ins: u32, del: u32, files: &[&str]) -> (BranchLog, HashSet<String>) {
+        let set: HashSet<String> = files.iter().map(|s| s.to_string()).collect();
+        let branch = BranchLog {
+            name: "b".to_string(),
+            url: None,
+            commits: vec![],
+            diff_stat: Some(DiffStat {
+                files_changed: files.len() as u32,
+                insertions: ins,
+                deletions: del,
+            }),
+        };
+        (branch, set)
+    }
+
+    #[test]
+    fn project_diff_stat_dedupes_files_across_branches() {
+        let data = vec![
+            branch_with_stat(10, 2, &["a.rs", "b.rs"]),
+            branch_with_stat(5, 1, &["b.rs", "c.rs"]),
+        ];
+        let stat = project_diff_stat(&data);
+        assert_eq!(stat.insertions, 15);
+        assert_eq!(stat.deletions, 3);
+        // a.rs, b.rs, c.rs — b.rs counted once across branches.
+        assert_eq!(stat.files_changed, 3);
+    }
+
+    #[test]
+    fn project_diff_stat_ignores_branches_without_stat() {
+        let mut data = vec![branch_with_stat(4, 4, &["x.rs"])];
+        let plain = BranchLog {
+            name: "no-stat".to_string(),
+            url: None,
+            commits: vec![],
+            diff_stat: None,
+        };
+        data.push((plain, HashSet::new()));
+        let stat = project_diff_stat(&data);
+        assert_eq!(stat.insertions, 4);
+        assert_eq!(stat.deletions, 4);
+        assert_eq!(stat.files_changed, 1);
     }
 }
