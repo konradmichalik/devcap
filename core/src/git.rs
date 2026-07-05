@@ -291,6 +291,30 @@ fn classify_host(hostname: &str) -> RepoOrigin {
     }
 }
 
+/// Remove any `user:token@` userinfo from an http(s) URL's authority.
+///
+/// Remote URLs such as `https://user:TOKEN@github.com/org/repo.git` are common
+/// for CI checkouts and PAT-based clones. Without stripping, the token would
+/// surface in every generated commit/branch link — i.e. in JSON output and in
+/// the clipboard text produced for stand-ups.
+fn strip_userinfo(url: &str) -> String {
+    let (scheme, rest) = if let Some(r) = url.strip_prefix("https://") {
+        ("https://", r)
+    } else if let Some(r) = url.strip_prefix("http://") {
+        ("http://", r)
+    } else {
+        return url.to_string();
+    };
+
+    let authority_end = rest.find('/').unwrap_or(rest.len());
+    let (authority, path) = rest.split_at(authority_end);
+
+    match authority.rsplit_once('@') {
+        Some((_creds, host)) => format!("{scheme}{host}{path}"),
+        None => url.to_string(),
+    }
+}
+
 /// Convert a git remote URL (SSH or HTTPS) into a browser-friendly HTTPS URL.
 pub fn remote_to_browser_url(raw: &str) -> Option<String> {
     let mut url = raw.trim().to_string();
@@ -323,7 +347,7 @@ pub fn remote_to_browser_url(raw: &str) -> Option<String> {
     }
 
     if url.starts_with("https://") || url.starts_with("http://") {
-        Some(url)
+        Some(strip_userinfo(&url))
     } else {
         None
     }
@@ -834,5 +858,44 @@ mod tests {
         assert_eq!(commits.len(), 1);
         assert!(commits[0].diff_stat.is_none());
         assert!(files.is_empty());
+    }
+
+    #[test]
+    fn strip_userinfo_only_touches_authority() {
+        assert_eq!(strip_userinfo("https://a:b@host/x@y"), "https://host/x@y");
+        assert_eq!(strip_userinfo("https://host/path"), "https://host/path");
+        // Non-http(s) inputs are returned unchanged.
+        assert_eq!(strip_userinfo("git@github.com:o/r"), "git@github.com:o/r");
+    }
+
+    #[test]
+    fn remote_to_browser_url_strips_https_credentials() {
+        assert_eq!(
+            remote_to_browser_url("https://user:token@github.com/o/r.git").as_deref(),
+            Some("https://github.com/o/r")
+        );
+        assert_eq!(
+            remote_to_browser_url("https://ghp_secret@gitlab.com/g/p.git").as_deref(),
+            Some("https://gitlab.com/g/p")
+        );
+    }
+
+    #[test]
+    fn remote_to_browser_url_never_leaks_token() {
+        let url = "https://ghp_secret@gitlab.com/g/p.git";
+        let out = remote_to_browser_url(url).unwrap_or_default();
+        assert!(!out.contains("ghp_secret"));
+    }
+
+    #[test]
+    fn remote_to_browser_url_plain_urls_unchanged() {
+        assert_eq!(
+            remote_to_browser_url("https://github.com/o/r.git").as_deref(),
+            Some("https://github.com/o/r")
+        );
+        assert_eq!(
+            remote_to_browser_url("git@github.com:o/r.git").as_deref(),
+            Some("https://github.com/o/r")
+        );
     }
 }
