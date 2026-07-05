@@ -310,12 +310,20 @@ pub fn remote_to_browser_url(raw: &str) -> Option<String> {
         }
     }
 
-    // ssh://git@host/... → https://host/...
-    if url.starts_with("ssh://") {
-        url = url.replacen("ssh://", "https://", 1);
-        if let Some(at) = url.find('@') {
-            url = format!("https://{}", &url[at + 1..]);
-        }
+    // ssh://[user@]host[:port]/path → https://host/path
+    // The SSH port is unrelated to the web port, so it must not leak into the URL.
+    if let Some(rest) = url.strip_prefix("ssh://") {
+        let rest = rest.rsplit_once('@').map(|(_, host)| host).unwrap_or(rest);
+        let (authority, path) = rest.split_once('/').unwrap_or((rest, ""));
+        let host = authority
+            .split_once(':')
+            .map(|(h, _)| h)
+            .unwrap_or(authority);
+        url = if path.is_empty() {
+            format!("https://{host}")
+        } else {
+            format!("https://{host}/{path}")
+        };
     }
 
     if url.ends_with(".git") {
@@ -834,5 +842,29 @@ mod tests {
         assert_eq!(commits.len(), 1);
         assert!(commits[0].diff_stat.is_none());
         assert!(files.is_empty());
+    }
+
+    #[test]
+    fn remote_to_browser_url_drops_ssh_port() {
+        assert_eq!(
+            remote_to_browser_url("ssh://git@gitlab.internal:2222/group/repo.git").as_deref(),
+            Some("https://gitlab.internal/group/repo")
+        );
+    }
+
+    #[test]
+    fn remote_to_browser_url_ssh_without_port() {
+        assert_eq!(
+            remote_to_browser_url("ssh://git@bitbucket.org/team/repo.git").as_deref(),
+            Some("https://bitbucket.org/team/repo")
+        );
+    }
+
+    #[test]
+    fn remote_to_browser_url_scp_form_unchanged() {
+        assert_eq!(
+            remote_to_browser_url("git@github.com:user/repo.git").as_deref(),
+            Some("https://github.com/user/repo")
+        );
     }
 }
