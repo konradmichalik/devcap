@@ -47,21 +47,24 @@ fn list_branches(repo: &Path) -> Result<Vec<String>> {
         .collect())
 }
 
-fn log_branch(
+/// Build the argument vector for the per-branch `git log` call.
+///
+/// The branch name is placed after `--end-of-options` so git always treats it
+/// as a positional revision. A malicious repository can carry refs whose names
+/// begin with a dash (e.g. `--output=/path`); without the separator such a ref
+/// would be parsed as a git flag when it flows in from `git branch`.
+fn build_log_args(
     repo: &Path,
     branch: &str,
     range: &TimeRange,
     author: Option<&str>,
     with_stat: bool,
-) -> Result<(Vec<Commit>, Option<DiffStat>, HashSet<String>)> {
-    let since_str = range.since.to_rfc3339();
-
+) -> Vec<String> {
     let mut args = vec![
         "-C".to_string(),
         repo.to_string_lossy().to_string(),
         "log".to_string(),
-        branch.to_string(),
-        format!("--after={since_str}"),
+        format!("--after={}", range.since.to_rfc3339()),
         "--format=%h%x00%s%x00%aI".to_string(),
         "--no-merges".to_string(),
     ];
@@ -77,6 +80,21 @@ fn log_branch(
     if let Some(author) = author {
         args.push(format!("--author={author}"));
     }
+
+    args.push("--end-of-options".to_string());
+    args.push(branch.to_string());
+
+    args
+}
+
+fn log_branch(
+    repo: &Path,
+    branch: &str,
+    range: &TimeRange,
+    author: Option<&str>,
+    with_stat: bool,
+) -> Result<(Vec<Commit>, Option<DiffStat>, HashSet<String>)> {
+    let args = build_log_args(repo, branch, range, author, with_stat);
 
     let output = Command::new("git")
         .args(&args)
@@ -897,5 +915,50 @@ mod tests {
             remote_to_browser_url("git@github.com:o/r.git").as_deref(),
             Some("https://github.com/o/r")
         );
+    }
+
+    #[test]
+    fn build_log_args_places_branch_after_end_of_options() {
+        let range = TimeRange {
+            since: Local::now(),
+            until: None,
+        };
+        let args = build_log_args(Path::new("/repo"), "main", &range, None, false);
+        let sep = args
+            .iter()
+            .position(|a| a == "--end-of-options")
+            .expect("separator present");
+        assert_eq!(args.last().map(String::as_str), Some("main"));
+        assert_eq!(args[sep + 1], "main");
+    }
+
+    #[test]
+    fn build_log_args_treats_dash_ref_as_positional() {
+        let range = TimeRange {
+            since: Local::now(),
+            until: None,
+        };
+        let malicious = "--output=/tmp/pwned";
+        let args = build_log_args(Path::new("/repo"), malicious, &range, None, false);
+        let sep = args
+            .iter()
+            .position(|a| a == "--end-of-options")
+            .expect("separator present");
+        // The crafted ref name only appears as the trailing positional, guarded
+        // by the separator — never as a standalone leading flag.
+        assert_eq!(args[sep + 1], malicious);
+        assert_eq!(args.last().map(String::as_str), Some(malicious));
+    }
+
+    #[test]
+    fn build_log_args_includes_author_until_and_numstat() {
+        let range = TimeRange {
+            since: Local::now(),
+            until: Some(Local::now()),
+        };
+        let args = build_log_args(Path::new("/repo"), "dev", &range, Some("Jane"), true);
+        assert!(args.iter().any(|a| a == "--numstat"));
+        assert!(args.iter().any(|a| a == "--author=Jane"));
+        assert!(args.iter().any(|a| a.starts_with("--before=")));
     }
 }
