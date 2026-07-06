@@ -184,6 +184,7 @@ fn show_commit_detail(project: &ProjectLog, commit: &Commit) -> Result<()> {
             "show",
             "--stat",
             "--format=medium",
+            "--end-of-options",
             &commit.hash,
         ])
         .output()?;
