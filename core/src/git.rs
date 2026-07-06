@@ -365,8 +365,11 @@ pub fn remote_to_browser_url(raw: &str) -> Option<String> {
     // ssh://[user@]host[:port]/path → https://host/path
     // The SSH port is unrelated to the web port, so it must not leak into the URL.
     if let Some(rest) = url.strip_prefix("ssh://") {
-        let rest = rest.rsplit_once('@').map(|(_, host)| host).unwrap_or(rest);
-        let (authority, path) = rest.split_once('/').unwrap_or((rest, ""));
+        let (authority_with_user, path) = rest.split_once('/').unwrap_or((rest, ""));
+        let authority = authority_with_user
+            .rsplit_once('@')
+            .map(|(_, host)| host)
+            .unwrap_or(authority_with_user);
         let host = authority
             .split_once(':')
             .map(|(h, _)| h)
@@ -975,6 +978,14 @@ mod tests {
         assert_eq!(
             remote_to_browser_url("git@github.com:user/repo.git").as_deref(),
             Some("https://github.com/user/repo")
+        );
+    }
+
+    #[test]
+    fn remote_to_browser_url_ssh_path_with_at_sign_unaffected() {
+        assert_eq!(
+            remote_to_browser_url("ssh://user@host/repo@special/thing.git").as_deref(),
+            Some("https://host/repo@special/thing")
         );
     }
 
