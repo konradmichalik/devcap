@@ -403,6 +403,18 @@ pub fn detect_origin(repo: &Path) -> Option<RepoOrigin> {
     Some(classify_host(hostname))
 }
 
+/// Derive both the repository origin and the browser URL from a single remote
+/// lookup, so `collect_project_log` never shells out to `git remote` twice.
+fn resolve_remote(raw: Option<&str>) -> (Option<RepoOrigin>, Option<String>) {
+    match raw {
+        Some(url) => (
+            extract_hostname(url).map(classify_host),
+            remote_to_browser_url(url),
+        ),
+        None => (None, None),
+    }
+}
+
 /// Build a browser URL for a branch, respecting platform-specific URL patterns.
 pub fn branch_url(remote_url: &str, origin: Option<&RepoOrigin>, branch: &str) -> String {
     let encoded = urlencoded(branch);
@@ -451,8 +463,7 @@ pub fn collect_project_log(
 ) -> Option<ProjectLog> {
     let project_name = repo.file_name()?.to_string_lossy().to_string();
     let branches = list_branches(repo).ok()?;
-    let origin = detect_origin(repo);
-    let remote = browser_url(repo);
+    let (origin, remote) = resolve_remote(get_remote_url(repo).as_deref());
 
     let mut project_files: HashSet<String> = HashSet::new();
     let mut project_insertions: u32 = 0;
@@ -1032,5 +1043,19 @@ mod tests {
         assert!(args.iter().any(|a| a == "--numstat"));
         assert!(args.iter().any(|a| a == "--author=Jane"));
         assert!(args.iter().any(|a| a.starts_with("--before=")));
+    }
+
+    #[test]
+    fn resolve_remote_derives_origin_and_url() {
+        let (origin, url) = resolve_remote(Some("git@github.com:user/repo.git"));
+        assert_eq!(origin, Some(RepoOrigin::GitHub));
+        assert_eq!(url.as_deref(), Some("https://github.com/user/repo"));
+    }
+
+    #[test]
+    fn resolve_remote_handles_missing_remote() {
+        let (origin, url) = resolve_remote(None);
+        assert!(origin.is_none());
+        assert!(url.is_none());
     }
 }
