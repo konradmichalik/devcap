@@ -362,12 +362,23 @@ pub fn remote_to_browser_url(raw: &str) -> Option<String> {
         }
     }
 
-    // ssh://git@host/... → https://host/...
-    if url.starts_with("ssh://") {
-        url = url.replacen("ssh://", "https://", 1);
-        if let Some(at) = url.find('@') {
-            url = format!("https://{}", &url[at + 1..]);
-        }
+    // ssh://[user@]host[:port]/path → https://host/path
+    // The SSH port is unrelated to the web port, so it must not leak into the URL.
+    if let Some(rest) = url.strip_prefix("ssh://") {
+        let (authority_with_user, path) = rest.split_once('/').unwrap_or((rest, ""));
+        let authority = authority_with_user
+            .rsplit_once('@')
+            .map(|(_, host)| host)
+            .unwrap_or(authority_with_user);
+        let host = authority
+            .split_once(':')
+            .map(|(h, _)| h)
+            .unwrap_or(authority);
+        url = if path.is_empty() {
+            format!("https://{host}")
+        } else {
+            format!("https://{host}/{path}")
+        };
     }
 
     if url.ends_with(".git") {
@@ -943,6 +954,38 @@ mod tests {
         assert_eq!(
             remote_to_browser_url("git@github.com:o/r.git").as_deref(),
             Some("https://github.com/o/r")
+        );
+    }
+
+    #[test]
+    fn remote_to_browser_url_drops_ssh_port() {
+        assert_eq!(
+            remote_to_browser_url("ssh://git@gitlab.internal:2222/group/repo.git").as_deref(),
+            Some("https://gitlab.internal/group/repo")
+        );
+    }
+
+    #[test]
+    fn remote_to_browser_url_ssh_without_port() {
+        assert_eq!(
+            remote_to_browser_url("ssh://git@bitbucket.org/team/repo.git").as_deref(),
+            Some("https://bitbucket.org/team/repo")
+        );
+    }
+
+    #[test]
+    fn remote_to_browser_url_scp_form_unchanged() {
+        assert_eq!(
+            remote_to_browser_url("git@github.com:user/repo.git").as_deref(),
+            Some("https://github.com/user/repo")
+        );
+    }
+
+    #[test]
+    fn remote_to_browser_url_ssh_path_with_at_sign_unaffected() {
+        assert_eq!(
+            remote_to_browser_url("ssh://user@host/repo@special/thing.git").as_deref(),
+            Some("https://host/repo@special/thing")
         );
     }
 
