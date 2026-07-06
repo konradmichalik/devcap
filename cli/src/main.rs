@@ -4,11 +4,12 @@ mod config;
 mod interactive;
 mod output;
 
+use std::cmp::Reverse;
 use std::io::IsTerminal;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use chrono::NaiveDate;
+use chrono::{DateTime, Local, NaiveDate};
 use clap::Parser;
 use devcap_core::{
     discovery, git, model,
@@ -84,42 +85,7 @@ fn main() -> Result<()> {
         })
         .unwrap_or_default();
 
-    projects.sort_by(|a, b| {
-        let ord = match sort_spec.field {
-            cli::SortField::Time => {
-                let latest = |p: &model::ProjectLog| {
-                    p.branches
-                        .iter()
-                        .flat_map(|br| br.commits.first())
-                        .map(|c| c.time)
-                        .max()
-                };
-                latest(a).cmp(&latest(b))
-            }
-            cli::SortField::Commits => {
-                let count = |p: &model::ProjectLog| {
-                    p.branches.iter().map(|br| br.commits.len()).sum::<usize>()
-                };
-                count(a).cmp(&count(b))
-            }
-            cli::SortField::Name => a.project.to_lowercase().cmp(&b.project.to_lowercase()),
-            cli::SortField::Lines => {
-                let lines = |p: &model::ProjectLog| {
-                    p.branches
-                        .iter()
-                        .flat_map(|br| &br.commits)
-                        .filter_map(|c| c.diff_stat.as_ref())
-                        .map(|s| (s.insertions + s.deletions) as u64)
-                        .sum::<u64>()
-                };
-                lines(a).cmp(&lines(b))
-            }
-        };
-        match sort_spec.direction {
-            cli::SortDirection::Asc => ord,
-            cli::SortDirection::Desc => ord.reverse(),
-        }
-    });
+    sort_projects(&mut projects, sort_spec);
 
     if let Some(sp) = &spinner {
         sp.finish_with_message(format!("\u{2713} {}", output::summary_line(&projects)));
@@ -187,5 +153,117 @@ fn resolve_time_range(
             range.with_until_date(u).map_err(|e| anyhow::anyhow!(e))
         }
         (None, None) => Ok(resolve_period().to_time_range()),
+    }
+}
+
+fn latest_commit_time(p: &model::ProjectLog) -> Option<DateTime<Local>> {
+    p.branches
+        .iter()
+        .flat_map(|br| br.commits.first())
+        .map(|c| c.time)
+        .max()
+}
+
+fn commit_count(p: &model::ProjectLog) -> usize {
+    p.branches.iter().map(|br| br.commits.len()).sum()
+}
+
+fn line_count(p: &model::ProjectLog) -> u64 {
+    p.branches
+        .iter()
+        .flat_map(|br| &br.commits)
+        .filter_map(|c| c.diff_stat.as_ref())
+        .map(|s| (s.insertions + s.deletions) as u64)
+        .sum()
+}
+
+fn project_name_key(p: &model::ProjectLog) -> String {
+    p.project.to_lowercase()
+}
+
+/// Sort in place by a cached key so each project's key is computed once (O(n))
+/// instead of on every comparison. `Desc` wraps the key in `Reverse`, which
+/// keeps the stable sort's original ordering among equal keys.
+fn sort_by_key_dir<T, K, F>(items: &mut [T], dir: cli::SortDirection, key: F)
+where
+    K: Ord,
+    F: Fn(&T) -> K,
+{
+    match dir {
+        cli::SortDirection::Asc => items.sort_by_cached_key(key),
+        cli::SortDirection::Desc => items.sort_by_cached_key(|x| Reverse(key(x))),
+    }
+}
+
+fn sort_projects(projects: &mut [model::ProjectLog], spec: cli::SortSpec) {
+    match spec.field {
+        cli::SortField::Time => sort_by_key_dir(projects, spec.direction, latest_commit_time),
+        cli::SortField::Commits => sort_by_key_dir(projects, spec.direction, commit_count),
+        cli::SortField::Name => sort_by_key_dir(projects, spec.direction, project_name_key),
+        cli::SortField::Lines => sort_by_key_dir(projects, spec.direction, line_count),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sort_by_key_dir_asc_orders_ascending() {
+        let mut v = vec![3, 1, 2, 1];
+        sort_by_key_dir(&mut v, cli::SortDirection::Asc, |x| *x);
+        assert_eq!(v, vec![1, 1, 2, 3]);
+    }
+
+    #[test]
+    fn sort_by_key_dir_desc_is_stable_for_ties() {
+        // (key, tag) — the tag records original order among equal keys.
+        let mut v = vec![(1, 'a'), (2, 'b'), (1, 'c'), (2, 'd')];
+        sort_by_key_dir(&mut v, cli::SortDirection::Desc, |x| x.0);
+        // Keys descending; equal keys keep their original relative order.
+        assert_eq!(v, vec![(2, 'b'), (2, 'd'), (1, 'a'), (1, 'c')]);
+    }
+
+    fn project(name: &str, n: usize) -> model::ProjectLog {
+        let commits = (0..n)
+            .map(|i| model::Commit {
+                hash: format!("h{i}"),
+                message: "m".to_string(),
+                commit_type: None,
+                time: Local::now(),
+                relative_time: "now".to_string(),
+                url: None,
+                diff_stat: None,
+            })
+            .collect();
+        model::ProjectLog {
+            project: name.to_string(),
+            path: String::new(),
+            origin: None,
+            remote_url: None,
+            branches: vec![model::BranchLog {
+                name: "main".to_string(),
+                url: None,
+                commits,
+                diff_stat: None,
+            }],
+            diff_stat: None,
+        }
+    }
+
+    #[test]
+    fn sort_projects_by_name_is_case_insensitive_ascending() {
+        let mut projects = vec![project("Zeta", 1), project("alpha", 1), project("Mango", 1)];
+        sort_projects(&mut projects, "name".parse().expect("valid spec"));
+        let names: Vec<&str> = projects.iter().map(|p| p.project.as_str()).collect();
+        assert_eq!(names, vec!["alpha", "Mango", "Zeta"]);
+    }
+
+    #[test]
+    fn sort_projects_by_commits_descending() {
+        let mut projects = vec![project("a", 1), project("b", 5), project("c", 3)];
+        sort_projects(&mut projects, "commits".parse().expect("valid spec"));
+        let names: Vec<&str> = projects.iter().map(|p| p.project.as_str()).collect();
+        assert_eq!(names, vec!["b", "c", "a"]);
     }
 }
