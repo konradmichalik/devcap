@@ -42,7 +42,7 @@ fn list_branches(repo: &Path) -> Result<Vec<String>> {
 
     Ok(String::from_utf8_lossy(&output.stdout)
         .lines()
-        .map(|l| l.trim().to_string())
+        .map(|l| sanitize_control(l.trim()))
         .filter(|l| !l.is_empty())
         .collect())
 }
@@ -204,6 +204,13 @@ fn parse_numstat_line(line: &str) -> Option<(u32, u32, String)> {
     Some((ins, del, parts[2].to_string()))
 }
 
+/// Remove terminal control characters from untrusted git output (commit
+/// subjects, ref names) at ingestion, so no downstream renderer can be tricked
+/// into emitting escape sequences to the terminal by a crafted repository.
+fn sanitize_control(s: &str) -> String {
+    s.chars().filter(|c| !c.is_control()).collect()
+}
+
 fn parse_commit_line(line: &str, now: DateTime<Local>) -> Option<Commit> {
     let parts: Vec<&str> = line.splitn(3, '\0').collect();
     if parts.len() != 3 {
@@ -214,10 +221,13 @@ fn parse_commit_line(line: &str, now: DateTime<Local>) -> Option<Commit> {
         .ok()?
         .with_timezone(&Local);
 
+    let message = sanitize_control(parts[1]);
+    let commit_type = detect_commit_type(&message);
+
     Some(Commit {
         hash: parts[0].to_string(),
-        message: parts[1].to_string(),
-        commit_type: detect_commit_type(parts[1]),
+        message,
+        commit_type,
         relative_time: format_relative(now, time),
         time,
         url: None,
@@ -876,6 +886,25 @@ mod tests {
         assert_eq!(commits.len(), 1);
         assert!(commits[0].diff_stat.is_none());
         assert!(files.is_empty());
+    }
+
+    #[test]
+    fn sanitize_control_removes_escapes_keeps_text() {
+        assert_eq!(sanitize_control("hi\x1b[31mx"), "hi[31mx");
+        assert_eq!(sanitize_control("a\x07b\x00c"), "abc");
+        // Printable unicode survives untouched.
+        assert_eq!(sanitize_control("feat: café ✨"), "feat: café ✨");
+    }
+
+    #[test]
+    fn parse_commit_line_sanitizes_message() {
+        let now = Local::now();
+        let ts = now.to_rfc3339();
+        let line = format!("abc1234\x00feat: hi\x1b]0;pwn\x07\x00{ts}");
+        let commit = parse_commit_line(&line, now).expect("should parse");
+        assert!(!commit.message.contains('\x1b'));
+        assert!(!commit.message.contains('\x07'));
+        assert_eq!(commit.commit_type.as_deref(), Some("feat"));
     }
 
     #[test]
