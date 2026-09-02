@@ -298,6 +298,7 @@ mod tests {
             message: message.to_string(),
             commit_type: None,
             time: Local::now(),
+            committer_time: Local::now(),
             relative_time: relative.to_string(),
             url: None,
             diff_stat: None,

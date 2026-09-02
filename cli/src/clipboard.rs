@@ -96,6 +96,7 @@ mod tests {
             message: msg.to_string(),
             commit_type: commit_type.map(String::from),
             time: Local::now(),
+            committer_time: Local::now(),
             relative_time: "1h ago".to_string(),
             url: None,
             diff_stat: None,

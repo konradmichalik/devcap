@@ -260,6 +260,7 @@ Each entry in the JSON array follows this shape:
           "message": "feat: add login flow",
           "commit_type": "feat",
           "timestamp": "2026-02-23T10:15:00+01:00",
+          "committer_timestamp": "2026-02-23T10:15:00+01:00",
           "relative_time": "3h ago"
         }
       ]
@@ -270,6 +271,22 @@ Each entry in the JSON array follows this shape:
 
 > [!IMPORTANT]
 > Merge commits are excluded from all output (`--no-merges` is always applied).
+
+#### `timestamp` vs `committer_timestamp`
+
+`timestamp` is the author date, when the work was originally written. `committer_timestamp` is the committer date, when the commit last entered history. They are identical for ordinary commits and diverge whenever one is rebased, amended or cherry-picked.
+
+Period selection (`-p`, `--since`, `--until`) filters on the **committer** date, because that is what git's `--after`/`--before` use. So a commit written two weeks ago but rebased today appears in `-p today` with an old `timestamp`.
+
+If you narrow a result set further yourself, filter on `committer_timestamp` to match what devcap selected:
+
+```bash
+# commits that landed today, out of a single week-wide scan
+devcap -p week --json | jq --arg day "$(date +%Y-%m-%d)" \
+  '[.[] | .branches[].commits[] | select(.committer_timestamp | startswith($day))]'
+```
+
+Use `timestamp` when you care about when the work was written, which is also what `relative_time` reflects.
 
 ## 📜 License
 

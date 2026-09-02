@@ -66,7 +66,7 @@ fn build_log_args(
         repo.to_string_lossy().to_string(),
         "log".to_string(),
         format!("--after={}", range.since.to_rfc3339()),
-        "--format=%h%x00%s%x00%aI".to_string(),
+        "--format=%h%x00%s%x00%aI%x00%cI".to_string(),
         "--no-merges".to_string(),
     ];
 
@@ -213,12 +213,15 @@ fn sanitize_control(s: &str) -> String {
 }
 
 fn parse_commit_line(line: &str, now: DateTime<Local>) -> Option<Commit> {
-    let parts: Vec<&str> = line.splitn(3, '\0').collect();
-    if parts.len() != 3 {
+    let parts: Vec<&str> = line.splitn(4, '\0').collect();
+    if parts.len() != 4 {
         return None;
     }
 
     let time = DateTime::parse_from_rfc3339(parts[2])
+        .ok()?
+        .with_timezone(&Local);
+    let committer_time = DateTime::parse_from_rfc3339(parts[3])
         .ok()?
         .with_timezone(&Local);
 
@@ -231,6 +234,7 @@ fn parse_commit_line(line: &str, now: DateTime<Local>) -> Option<Commit> {
         commit_type,
         relative_time: format_relative(now, time),
         time,
+        committer_time,
         url: None,
         diff_stat: None,
     })
@@ -636,7 +640,7 @@ mod tests {
     fn parse_commit_line_valid() {
         let now = Local::now();
         let time_str = now.to_rfc3339();
-        let line = format!("abc1234\x00feat: add feature\x00{time_str}");
+        let line = format!("abc1234\x00feat: add feature\x00{time_str}\x00{time_str}");
         let commit = parse_commit_line(&line, now);
         assert!(commit.is_some());
         let c = commit.unwrap_or_else(|| panic!("Expected Some"));
@@ -649,6 +653,52 @@ mod tests {
     fn parse_commit_line_invalid() {
         let now = Local::now();
         assert!(parse_commit_line("incomplete line", now).is_none());
+    }
+
+    #[test]
+    fn parse_commit_line_missing_committer_date_is_rejected() {
+        let now = Local::now();
+        let ts = now.to_rfc3339();
+        let line = format!("abc1234\x00feat: add feature\x00{ts}");
+        assert!(parse_commit_line(&line, now).is_none());
+    }
+
+    /// A rebased commit keeps its author date but gets a fresh committer date.
+    /// Only the latter matches what `--after` selected on, so both have to
+    /// survive parsing independently.
+    #[test]
+    fn parse_commit_line_keeps_author_and_committer_dates_apart() {
+        let now = Local::now();
+        let authored = now - Duration::days(16);
+        let line = format!(
+            "abc1234\x00feat: add feature\x00{}\x00{}",
+            authored.to_rfc3339(),
+            now.to_rfc3339()
+        );
+
+        let c = parse_commit_line(&line, now).unwrap_or_else(|| panic!("Expected Some"));
+
+        assert_eq!(c.time, authored);
+        assert_eq!(c.committer_time, now);
+        assert_ne!(c.time, c.committer_time);
+    }
+
+    /// `relative_time` is derived from the author date, which is what the UI
+    /// shows. Pinned here so the added committer date does not silently take
+    /// over the display value.
+    #[test]
+    fn parse_commit_line_relative_time_follows_author_date() {
+        let now = Local::now();
+        let authored = now - Duration::days(16);
+        let line = format!(
+            "abc1234\x00feat: add feature\x00{}\x00{}",
+            authored.to_rfc3339(),
+            now.to_rfc3339()
+        );
+
+        let c = parse_commit_line(&line, now).unwrap_or_else(|| panic!("Expected Some"));
+
+        assert_eq!(c.relative_time, format_relative(now, authored));
     }
 
     #[test]
@@ -879,11 +929,11 @@ mod tests {
         let now = Local::now();
         let ts = now.to_rfc3339();
         let input = format!(
-            "abc1234\x00feat: add feature\x00{ts}\n\
+            "abc1234\x00feat: add feature\x00{ts}\x00{ts}\n\
              3\t1\tsrc/main.rs\n\
              10\t0\tsrc/lib.rs\n\
              \n\
-             def5678\x00fix: bug\x00{ts}\n\
+             def5678\x00fix: bug\x00{ts}\x00{ts}\n\
              2\t5\tsrc/main.rs\n"
         );
         let (commits, files) = parse_log_output(&input, now, true);
@@ -915,7 +965,7 @@ mod tests {
     fn parse_log_output_without_stat() {
         let now = Local::now();
         let ts = now.to_rfc3339();
-        let input = format!("abc1234\x00feat: add feature\x00{ts}\n");
+        let input = format!("abc1234\x00feat: add feature\x00{ts}\x00{ts}\n");
         let (commits, files) = parse_log_output(&input, now, false);
         assert_eq!(commits.len(), 1);
         assert!(commits[0].diff_stat.is_none());
@@ -978,7 +1028,7 @@ mod tests {
     fn parse_commit_line_sanitizes_message() {
         let now = Local::now();
         let ts = now.to_rfc3339();
-        let line = format!("abc1234\x00feat: hi\x1b]0;pwn\x07\x00{ts}");
+        let line = format!("abc1234\x00feat: hi\x1b]0;pwn\x07\x00{ts}\x00{ts}");
         let commit = parse_commit_line(&line, now).expect("should parse");
         assert!(!commit.message.contains('\x1b'));
         assert!(!commit.message.contains('\x07'));
@@ -1099,6 +1149,18 @@ mod tests {
         assert!(args.iter().any(|a| a == "--numstat"));
         assert!(args.iter().any(|a| a == "--author=Jane"));
         assert!(args.iter().any(|a| a.starts_with("--before=")));
+    }
+
+    /// `--after`/`--before` select on the committer date, so that date has to
+    /// be in the output for a consumer to be able to narrow the result further.
+    #[test]
+    fn build_log_args_requests_author_and_committer_dates() {
+        let range = TimeRange {
+            since: Local::now(),
+            until: None,
+        };
+        let args = build_log_args(Path::new("/repo"), "main", &range, None, false);
+        assert!(args.iter().any(|a| a == "--format=%h%x00%s%x00%aI%x00%cI"));
     }
 
     #[test]
